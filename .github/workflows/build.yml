@@ -9,6 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -19,19 +20,25 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+      # 缓存 Gradle —— 第二次构建会秒速完成
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
         with:
-          gradle-version: "8.5"
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
 
-      - name: Generate Gradle Wrapper
-        run: gradle wrapper
-        timeout-minutes: 10 # 🔴 这一步单独 10 分钟超时
+      # 给执行权限
+      - name: Grant execute permission
+        run: chmod +x gradlew
 
+      # 编译
       - name: Build debug APK
         run: ./gradlew assembleDebug
-        timeout-minutes: 15 # 🔴 编译打包这步 15 分钟超时
+        timeout-minutes: 15
 
+      # 上传 APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
