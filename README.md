@@ -167,7 +167,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ## 📄 License
 
-MIT License — 自由使用和修改。1
+MIT License — 自由使用和修改。
 
 ---
 
