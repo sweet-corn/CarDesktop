@@ -29,10 +29,6 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
 
-      # 给执行权限
-      - name: Grant execute permission
-        run: chmod +x gradlew
-
       # 编译
       - name: Build debug APK
         run: ./gradlew assembleDebug
