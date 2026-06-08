@@ -29,6 +29,7 @@
 ## ✨ 功能特性
 
 ### 已实现
+
 - [x] **Launcher 模式** — 注册为系统 HOME 桌面
 - [x] **横屏全屏** — 强制横屏 + 沉浸式全屏
 - [x] **应用抽屉** — 显示所有已安装应用，支持搜索
@@ -43,6 +44,7 @@
 - [x] **大触摸目标** — 符合驾驶安全规范（64dp+）
 
 ### 待开发
+
 - [ ] 天气 API 接入（高德/和风天气）
 - [ ] OBD 车辆数据读取（可选）
 - [ ] 音乐播放器控件
@@ -88,20 +90,21 @@ app/src/main/java/com/cardesktop/
 
 ## 🛠️ 技术栈
 
-| 技术 | 版本 | 用途 |
-|---|---|---|
-| Kotlin | 1.9.22 | 编程语言 |
-| Jetpack Compose | BOM 2024.01 | UI 框架 |
-| Material 3 | - | 设计系统 |
-| ViewModel | 2.7.0 | 状态管理 |
-| Coroutines | - | 异步任务 |
-| Navigation | 2.7.6 | 页面导航 |
+| 技术            | 版本        | 用途     |
+| --------------- | ----------- | -------- |
+| Kotlin          | 1.9.22      | 编程语言 |
+| Jetpack Compose | BOM 2024.01 | UI 框架  |
+| Material 3      | -           | 设计系统 |
+| ViewModel       | 2.7.0       | 状态管理 |
+| Coroutines      | -           | 异步任务 |
+| Navigation      | 2.7.6       | 页面导航 |
 
 ---
 
 ## 🚀 快速开始
 
 ### 环境要求
+
 - Android Studio Hedgehog (2023.1.1) 或更高
 - JDK 17
 - Android SDK 34
@@ -130,6 +133,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 ### 模拟器测试
 
 建议创建 **10.1 寸平板模拟器** (1920×1200, 横屏)：
+
 1. Android Studio → Device Manager → Create Device
 2. 选择 Tablet → Pixel Tablet
 3. 系统镜像选择 API 34+
@@ -140,17 +144,20 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 ## 🎨 设计规范
 
 ### 色彩
+
 - **主色**：`#00E5FF` 科技蓝
 - **强调**：`#FF6D00` 活力橙
 - **背景**：`#0A0E14` 深邃黑蓝
 - **卡片**：`#141B26` 半透明深色
 
 ### 字号（驾驶安全）
+
 - 标题：20sp
 - 正文：16sp（最小 14sp）
 - 触摸目标：最小 64dp × 64dp
 
 ### 安全规范
+
 - 行驶中禁止复杂交互
 - 大按钮、大字体
 - 深色主题（夜间驾驶友好）
@@ -160,7 +167,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ## 📄 License
 
-MIT License — 自由使用和修改。
+MIT License — 自由使用和修改。1
 
 ---
 
