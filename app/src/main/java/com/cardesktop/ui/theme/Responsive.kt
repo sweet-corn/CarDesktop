@@ -28,8 +28,8 @@ enum class ScreenSize {
 object ResponsiveDimens {
     
     // ========== 基准尺寸（以1080p为基准）==========
-    private val BASE_WIDTH = 1920.dp  // 基准宽度（车机标准）
-    private val BASE_HEIGHT = 720.dp  // 基准高度
+    private const val BASE_WIDTH_DP = 1920f  // 基准宽度（车机标准）
+    private const val BASE_HEIGHT_DP = 720f  // 基准高度
     
     /**
      * 获取当前屏幕尺寸分类
@@ -37,12 +37,12 @@ object ResponsiveDimens {
     @Composable
     fun getScreenSize(): ScreenSize {
         val configuration = LocalConfiguration.current
-        val screenWidthDp = configuration.screenWidthDp.dp
+        val screenWidthDp = configuration.screenWidthDp.toFloat()
         
         return remember(screenWidthDp) {
             when {
-                screenWidthDp < 800.dp -> ScreenSize.SMALL   // < 8寸
-                screenWidthDp < 1200.dp -> ScreenSize.MEDIUM  // 8-12寸
+                screenWidthDp < 800f -> ScreenSize.SMALL   // < 8寸
+                screenWidthDp < 1200f -> ScreenSize.MEDIUM  // 8-12寸
                 else -> ScreenSize.LARGE                       // > 12寸
             }
         }
@@ -54,10 +54,11 @@ object ResponsiveDimens {
     @Composable
     fun getScaleFactor(): Float {
         val configuration = LocalConfiguration.current
-        val screenWidthDp = configuration.screenWidthDp.dp.toFloat()
-        
+        val screenWidthDp: Float = configuration.screenWidthDp.toFloat()
+
         return remember(screenWidthDp) {
-            (screenWidthDp / BASE_WIDTH.value).coerceIn(0.5f, 2.0f)
+            val scale = screenWidthDp / BASE_WIDTH_DP
+            scale.coerceIn(0.5f, 2.0f)
         }
     }
     

@@ -25,6 +25,43 @@ import com.cardesktop.ui.theme.CyberpunkColors
 import com.cardesktop.ui.theme.ResponsiveDimensions
 
 /**
+ * 打开音乐应用
+ */
+fun openMusicApp(context: Context) {
+    try {
+        val intent = context.packageManager.getLaunchIntentForPackage("com.tencent.qqmusic")
+        if (intent != null) {
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            context.startActivity(intent)
+            return
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+
+    try {
+        val intent = context.packageManager.getLaunchIntentForPackage("com.kugou.android")
+        if (intent != null) {
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            context.startActivity(intent)
+            return
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+
+    try {
+        val intent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_APP_MUSIC)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
+/**
  * 赛博朋克风格底部 Dock 栏 - 自适应版本
  */
 @Composable
@@ -221,7 +258,7 @@ private fun NeonTemperatureControl(dim: ResponsiveDimensions) {
             Text(
                 text = "<",
                 color = CyberpunkColors.NeonBlue,
-                fontSize = (20 * dim.scaleFactor).sp.coerceIn(14f, 30f),
+                fontSize = (20 * dim.scaleFactor).coerceIn(14f, 30f).sp,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -244,7 +281,7 @@ private fun NeonTemperatureControl(dim: ResponsiveDimensions) {
             Text(
                 text = ">",
                 color = CyberpunkColors.NeonBlue,
-                fontSize = (20 * dim.scaleFactor).sp.coerceIn(14f, 30f),
+                fontSize = (20 * dim.scaleFactor).coerceIn(14f, 30f).sp,
                 fontWeight = FontWeight.Bold
             )
         }
