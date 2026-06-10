@@ -1,5 +1,8 @@
 package com.cardesktop.ui.widget
 
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -19,7 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.cardesktop.ui.theme.*
 
 /**
- * 顶部状态栏 - 按照参考图：左侧时间 + 右侧图标
+ * 顶部状态栏 - 左侧时间 + 右侧图标
  */
 @Composable
 fun TopStatusBar(
@@ -34,7 +38,6 @@ fun TopStatusBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 左侧：时间显示
         Text(
             text = time,
             color = Color(0xFF4FC3F7),
@@ -42,7 +45,6 @@ fun TopStatusBar(
             fontWeight = FontWeight.Medium
         )
 
-        // 右侧：系统状态图标
         Row(
             horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceM),
             verticalAlignment = Alignment.CenterVertically
@@ -74,7 +76,6 @@ fun WallpaperCard(modifier: Modifier = Modifier) {
             .padding(4.dp),
         contentAlignment = Alignment.Center
     ) {
-        // 壁纸内容区域（模拟可爱的熊猫猫咪壁纸）
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -82,22 +83,18 @@ fun WallpaperCard(modifier: Modifier = Modifier) {
                 .background(
                     brush = Brush.linearGradient(
                         colors = listOf(
-                            Color(0xFF87CEEB), // 天蓝色
-                            Color(0xFFE0F7FA)  // 浅蓝白
+                            Color(0xFF87CEEB),
+                            Color(0xFFE0F7FA)
                         )
                     )
                 ),
             contentAlignment = Alignment.Center
         ) {
-            // 模拟壁纸内容（实际项目中替换为真实图片）
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = "🐼🎢🐱",
-                    fontSize = 80.sp
-                )
+                Text(text = "🐼🎢🐱", fontSize = 80.sp)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "可爱壁纸区域",
@@ -110,26 +107,32 @@ fun WallpaperCard(modifier: Modifier = Modifier) {
 }
 
 /**
- * 功能卡片行 - 底部功能区域
- * 包含：导航 | 媒体播放器 | 车辆控制 | 胎压信息 | 设置按钮
+ * 功能卡片行 - 严格按照顺序：导航 | 音乐 | 车辆控制 | 胎压显示 | 设置
+ * 每个模块用半透明矩形包裹，卡片分隔开
  */
 @Composable
 fun FunctionCardsRow(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    
     Row(
         modifier = modifier
             .fillMaxWidth()
             .background(Color.Transparent)
             .padding(horizontal = Dimens.SpaceL, vertical = Dimens.SpaceS),
-        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceM),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 1. 导航卡片
+        // 1. 导航卡片（可点击打开导航）
         NavigationCard(
+            onClick = { openNavigationApp(context) },
             modifier = Modifier.width(180.dp).height(90.dp)
         )
 
-        // 2. 媒体播放器卡片
+        // 2. 音乐播放器卡片（可点击打开音乐）
         MediaPlayerCard(
+            onPlayPause = { openMusicApp(context) },
+            onNext = { openMusicApp(context) },
+            onPrevious = { openMusicApp(context) },
             modifier = Modifier.weight(1f).height(90.dp)
         )
 
@@ -143,36 +146,39 @@ fun FunctionCardsRow(modifier: Modifier = Modifier) {
             modifier = Modifier.width(200.dp).height(90.dp)
         )
 
-        // 5. 设置按钮
+        // 5. 设置按钮（点击打开原生设置）
         SettingsButton(
+            onClick = { 
+                context.startActivity(Intent(Settings.ACTION_SETTINGS).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                })
+            },
             modifier = Modifier.size(90.dp)
         )
     }
 }
 
 /**
- * 导航快捷方式卡片
+ * 导航快捷方式卡片 - 半透明矩形包裹
  */
 @Composable
-fun NavigationCard(modifier: Modifier = Modifier) {
+fun NavigationCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0x80000000)) // 半透明黑色
+            .background(Color(0x80000000)) // 半透明黑色背景
+            .clickable(onClick = onClick)
             .padding(horizontal = Dimens.SpaceM, vertical = Dimens.SpaceS),
         horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceL),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 地图图标
         NavIconItem(icon = "🗺️")
-
-        // 回家/去公司
+        
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             NavTextItem(label = "回家")
             NavTextItem(label = "去公司")
         }
 
-        // 公司图标
         NavIconItem(icon = "🏢")
     }
 }
@@ -184,15 +190,11 @@ private fun NavIconItem(icon: String) {
 
 @Composable
 private fun NavTextItem(label: String) {
-    Text(
-        text = label,
-        color = Color.White,
-        fontSize = 13.sp
-    )
+    Text(text = label, color = Color.White, fontSize = 13.sp)
 }
 
 /**
- * 媒体播放器卡片
+ * 媒体播放器卡片 - 半透明矩形包裹
  */
 @Composable
 fun MediaPlayerCard(
@@ -205,48 +207,33 @@ fun MediaPlayerCard(
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0x80000000))
+            .background(Color(0x80000000)) // 半透明黑色背景
             .padding(horizontal = Dimens.SpaceL, vertical = Dimens.SpaceS),
         horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceM),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 音乐图标
         Text(text = "🎵", fontSize = 36.sp)
 
-        // 等待播放文字 + 收藏
         Column {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "等待播放",
-                    color = Color.White,
-                    fontSize = 14.sp
-                )
+                Text(text = "等待播放", color = Color.White, fontSize = 14.sp)
                 Text(text = "❤️", fontSize = 18.sp)
             }
         }
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // 播放控制按钮
         MediaButton(icon = "⏮️", onClick = onPrevious)
-        MediaButton(
-            icon = if (isPlaying) "⏸️" else "▶️",
-            onClick = onPlayPause,
-            isMain = true
-        )
+        MediaButton(icon = if (isPlaying) "⏸️" else "▶️", onClick = onPlayPause, isMain = true)
         MediaButton(icon = "⏭️", onClick = onNext)
     }
 }
 
 @Composable
-private fun MediaButton(
-    icon: String,
-    onClick: () -> Unit,
-    isMain: Boolean = false
-) {
+private fun MediaButton(icon: String, onClick: () -> Unit, isMain: Boolean = false) {
     Box(
         modifier = Modifier
             .size(if (isMain) 48.dp else 40.dp)
@@ -254,33 +241,25 @@ private fun MediaButton(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = icon,
-            fontSize = if (isMain) 24.sp else 20.sp,
-            color = Color.White
-        )
+        Text(text = icon, fontSize = if (isMain) 24.sp else 20.sp, color = Color.White)
     }
 }
 
 /**
- * 车辆控制卡片
+ * 车辆控制卡片 - 半透明矩形包裹
  */
 @Composable
-fun VehicleControlCard(
-    modifier: Modifier = Modifier
-) {
+fun VehicleControlCard(modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0x80000000))
+            .background(Color(0x80000000)) // 半透明黑色背景
             .padding(horizontal = Dimens.SpaceM, vertical = Dimens.SpaceS),
         horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceM),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 车辆图片
         Text(text = "🚙", fontSize = 48.sp)
 
-        // 控制项：已开门 / 已开启
         Column {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS),
@@ -297,16 +276,12 @@ fun VehicleControlCard(
 private fun VehicleControlItem(icon: String, text: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(text = icon, fontSize = 20.sp)
-        Text(
-            text = text,
-            color = Color.White,
-            fontSize = 12.sp
-        )
+        Text(text = text, color = Color.White, fontSize = 12.sp)
     }
 }
 
 /**
- * 胎压信息卡片 - 带车辆俯视图和四轮压力值
+ * 胎压信息卡片 - 半透明矩形包裹
  */
 @Composable
 fun TirePressureInfoCard(
@@ -319,21 +294,18 @@ fun TirePressureInfoCard(
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0x80000000))
+            .background(Color(0x80000000)) // 半透明黑色背景
             .padding(horizontal = Dimens.SpaceM, vertical = Dimens.SpaceS),
         horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 左侧两轮压力
         Column {
             TireValue(value = frontLeft)
             TireValue(value = rearLeft)
         }
 
-        // 中间车辆俯视图
         Text(text = "🚗", fontSize = 40.sp)
 
-        // 右侧两轮压力
         Column {
             TireValue(value = frontRight)
             TireValue(value = rearRight)
@@ -352,14 +324,14 @@ private fun TireValue(value: Float) {
 }
 
 /**
- * 设置按钮
+ * 设置按钮 - 半透明矩形包裹
  */
 @Composable
 fun SettingsButton(onClick: () -> Unit = {}, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0x80000000))
+            .background(Color(0x80000000)) // 半透明黑色背景
             .clickable(onClick = onClick)
             .padding(Dimens.SpaceS),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -367,10 +339,69 @@ fun SettingsButton(onClick: () -> Unit = {}, modifier: Modifier = Modifier) {
     ) {
         Text(text = "⚙️", fontSize = 32.sp)
         Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = "设置",
-            color = Color.White,
-            fontSize = 12.sp
-        )
+        Text(text = "设置", color = Color.White, fontSize = 12.sp)
+    }
+}
+
+/**
+ * 打开导航应用
+ */
+private fun openNavigationApp(context: Context) {
+    try {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            `package` = "com.autonavi.minimap" // 高德地图
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        try {
+            val intent = Intent(Intent.ACTION_MAIN).apply {
+                `package` = "com.google.android.apps.maps" // Google Maps
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+        } catch (e2: Exception) {
+            // 如果都没有安装，尝试打开系统地图选择器
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                data = android.net.Uri.parse("geo:0,0?q=")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+        }
+    }
+}
+
+/**
+ * 打开音乐应用
+ */
+private fun openMusicApp(context: Context) {
+    try {
+        val intent = Intent(Intent.ACTION_MAIN).apply {
+            `package` = "com.tencent.qqmusic" // QQ音乐
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        try {
+            val intent = Intent(Intent.ACTION_MAIN).apply {
+                `package` = "com.kugou.android" // 酷狗音乐
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+        } catch (e2: Exception) {
+            try {
+                val intent = Intent("android.intent.action.MUSIC_PLAYER").apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+            } catch (e3: Exception) {
+                // 最后尝试打开系统音乐播放器
+                val intent = Intent(Intent.ACTION_MAIN).apply {
+                    addCategory(Intent.CATEGORY_APP_MUSIC)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+            }
+        }
     }
 }

@@ -1,29 +1,33 @@
 package com.cardesktop.ui.widget
 
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cardesktop.ui.theme.*
 
 /**
- * 磨砂玻璃效果底部 Dock 栏 - 完全按照参考图还原
+ * 磨砂玻璃效果底部 Dock 栏 - 严格按照图片布局
  *
- * 特点：
- * - 半透明背景 (alpha = 0.6)
- * - 模糊效果 (blur)
- * - 包含所有图标：设置、主页、温度调节、音乐、导航等
+ * 从左到右依次是：
+ * 1. 车辆设置按钮 (⚙️)
+ * 2. 主页按钮 (🏠)
+ * 3. 空调开关和温度增减 (< 20°C >)
+ * 4. 自定义app卡槽 (🎵)
+ * 5. 空调按钮 (❄️)
+ * 6. 全应用按钮 (⊞)
  */
 @Composable
 fun FrostedGlassDockBar(
@@ -31,11 +35,13 @@ fun FrostedGlassDockBar(
     onAppDrawerClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    
     Box(
         modifier = modifier
             .fillMaxWidth()
             .background(
-                color = Color.White.copy(alpha = 0.15f) // 半透明白色背景
+                color = Color.White.copy(alpha = 0.15f) // 半透明白色背景（磨砂玻璃效果）
             )
             .padding(vertical = Dimens.SpaceS)
     ) {
@@ -46,32 +52,51 @@ fun FrostedGlassDockBar(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 1. 设置图标
-            DockIconItem(icon = "⚙️", onClick = onSettingsClick)
+            // ========== 1. 车辆设置按钮 ==========
+            DockIconItem(
+                icon = "⚙️",
+                label = "车辆设置",
+                onClick = { 
+                    context.startActivity(Intent(Settings.ACTION_SETTINGS).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    })
+                }
+            )
 
-            // 2. 主页图标
-            DockIconItem(icon = "🏠", onClick = {})
+            // ========== 2. 主页按钮 ==========
+            DockIconItem(
+                icon = "🏠",
+                label = "主页",
+                onClick = {},
+                isHighlight = true
+            )
 
-            // 3. 温度显示区域（带 < > 调节）
-            TemperatureDisplay()
+            // ========== 3. 空调开关和温度增减 ==========
+            TemperatureControl()
 
-            // 4. 音乐图标
-            DockIconItem(icon = "🎵", onClick = {})
+            // ========== 4. 自定义app卡槽（音乐） ==========
+            DockIconItem(
+                icon = "🎵",
+                label = "音乐",
+                onClick = { openMusicApp(context) }
+            )
 
-            // 5. 导航/消息图标
-            DockIconItem(icon = "✈️", onClick = {})
+            // ========== 5. 空调按钮 ==========
+            DockIconItem(
+                icon = "❄️",
+                label = "空调",
+                onClick = {}
+            )
 
-            // 中间弹性空间
+            // 弹性空间
             Spacer(modifier = Modifier.weight(1f))
 
-            // 6. 天气详情图标
-            DockIconItem(icon = "🌤️", label = "关", onClick = {})
-
-            // 7. 车辆状态图标
-            DockIconItem(icon = "🚗", onClick = {})
-
-            // 8. 应用网格图标
-            DockIconItem(icon = "⊞", onClick = onAppDrawerClick)
+            // ========== 6. 全应用按钮 ==========
+            DockIconItem(
+                icon = "⊞",
+                label = "全部应用",
+                onClick = onAppDrawerClick
+            )
         }
     }
 }
@@ -108,13 +133,13 @@ private fun DockIconItem(
 }
 
 /**
- * 温度显示区域 - 带左右调节按钮
+ * 温度控制区域 - 带空调开关和左右调节按钮
  */
 @Composable
-private fun TemperatureDisplay() {
+private fun TemperatureControl() {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS)
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceXS)
     ) {
         // 左箭头（降温）
         Text(
@@ -125,12 +150,12 @@ private fun TemperatureDisplay() {
             modifier = Modifier.clickable(onClick = { /* 降温 */ })
         )
 
-        // 温度数值
+        // 温度数值显示
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = "20°C",
                 color = Color.White,
-                fontSize = 20.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Medium
             )
         }
