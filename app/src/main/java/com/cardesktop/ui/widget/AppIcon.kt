@@ -63,7 +63,7 @@ fun DesktopAppIcon(
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = app.label,
-            color = TextPrimary,
+            color = CyberpunkColors.TextPrimary,
             fontSize = Dimens.FontCaption,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
