@@ -10,7 +10,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -23,23 +22,23 @@ import com.cardesktop.ui.theme.*
 import com.cardesktop.ui.widget.*
 
 /**
- * 比亚迪车机桌面 - 完全按照参考图还原
- *
+ * 赛博朋克风格车机桌面 - 100%还原AI生成图
+ * 
  * 布局结构：
  * ┌──────────────────────────────────────────────┐
- * │ 状态栏: [20:44]              [📍 🔇 📶 🔋] │
+ * │ 状态栏: [20:44]              [📍 🔇 📶 📡 🔋] │
  * ├──────────────────────────────────────────────┤
  * │                                              │
- * │  20:44          ┌──────────────────┐        │
- * │  6月9日 星期二   │                  │        │
- * │                 │   壁纸图片区域    │        │
- * │                 │                  │        │
- * │                 └──────────────────┘        │
- │                                              │
+ * │  20:44          ╔══════════════════╗        │
+ * │  6月9日 星期二   ║                  ║        │
+ * │                 ║  CYBERPUNK壁纸   ║        │
+ * │                 ║  (霓虹边框)      ║        │
+ * │                 ╚══════════════════╝        │
+ * │                                              │
  * ├──────────────────────────────────────────────┤
- * │[导航][媒体播放][车辆控制][胎压]      [设置]│
+ * │[导航][音乐][车辆][胎压][设置] (霓虹卡片)    │
  * ├──────────────────────────────────────────────┤
- * │ ⚙️ 🏠 < 20°C > 🎵 ✈️ ... 🌤️ 🚗 ⊞ (毛玻璃)│
+ * │ ⚙️ 🏠 < 20°C > 🎵 ❄️ ... (磨砂玻璃)       │
  * └──────────────────────────────────────────────┘
  */
 @Composable
@@ -61,13 +60,13 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(CyberpunkColors.BackgroundDark)
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // ========== 1. 顶部状态栏 ==========
-            TopStatusBar(time = time)
+            // ========== 1. 顶部状态栏（赛博朋克风格）==========
+            CyberpunkStatusBar(time = time)
 
             // ========== 2. 主内容区域 ==========
             Box(
@@ -75,16 +74,15 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                // 背景（深色渐变）
+                // 深空背景
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
-                                    Color(0xFF1a237e),
-                                    Color(0xFF0d47a1),
-                                    Color(0xFF01579b)
+                                    CyberpunkColors.GradientStart,
+                                    CyberpunkColors.GradientEnd
                                 )
                             )
                         )
@@ -97,29 +95,32 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
                         .padding(top = Dimens.SpaceXXL),
                     horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceL)
                 ) {
-                    // 左侧：大时钟
+                    // 左侧：大时钟（霓虹发光）
                     Column(
                         modifier = Modifier
                             .padding(start = Dimens.SpaceXL)
                             .align(Alignment.Top),
                         horizontalAlignment = Alignment.Start
                     ) {
+                        // 大时间 - 霓虹青色发光
                         Text(
                             text = time,
                             color = Color.White,
-                            fontSize = 64.sp,
+                            fontSize = Dimens.FontTimeLarge,
                             fontWeight = FontWeight.Light,
                             letterSpacing = 2.sp
                         )
                         Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // 日期
                         Text(
                             text = date,
-                            color = Color.White.copy(alpha = 0.8f),
-                            fontSize = 18.sp
+                            color = CyberpunkColors.TextSecondary,
+                            fontSize = Dimens.FontBody
                         )
                     }
 
-                    // 右侧：壁纸图片区域
+                    // 右侧：壁纸区域（霓虹边框）
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -127,27 +128,23 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
                             .padding(end = Dimens.SpaceXL, top = Dimens.SpaceM, bottom = Dimens.SpaceL),
                         contentAlignment = Alignment.Center
                     ) {
-                        WallpaperCard()
+                        CyberpunkWallpaperCard()
                     }
                 }
             }
 
-            // ========== 3. 功能卡片栏 ==========
-            FunctionCardsRow()
+            // ========== 3. 功能卡片栏（霓虹发光边框）==========
+            NeonFunctionCardsRow()
 
-            // ========== 4. 底部 Dock 栏（磨砂玻璃效果）=========
+            // ========== 4. 底部 Dock 栏（磨砂玻璃）==========
             FrostedGlassDockBar(
                 onSettingsClick = {
-                    context.startActivity(
-                        Intent(context, SettingsActivity::class.java)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
+                    context.startActivity(Intent(context, SettingsActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 },
                 onAppDrawerClick = {
-                    context.startActivity(
-                        Intent(context, AppDrawerActivity::class.java)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
+                    context.startActivity(Intent(context, AppDrawerActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 }
             )
         }

@@ -1,41 +1,81 @@
 package com.cardesktop.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
-// ========== 比亚迪车机主题色 ==========
-val Primary = Color(0xFF00D4FF)        // 科技蓝
-val PrimaryDark = Color(0xFF0099CC)
-val Accent = Color(0xFFFF6B35)         // 活力橙
+/**
+ * 比亚迪车机桌面主题配置 - 赛博朋克风格
+ * 
+ * 配色方案：
+ * - 主色：霓虹青色 (#00FFFF)
+ * - 强调色：霓虹粉色 (#FF00FF)
+ * - 警告色：霓虹黄色 (#FFFF00)
+ * - 背景：深空黑 (#0A0E27)
+ */
+object Dimens {
+    // 触摸目标大小（车机安全标准）
+    val TouchTarget = 72.dp
+    
+    // 间距系统
+    val SpaceXS = 4.dp
+    val SpaceS = 8.dp
+    val SpaceM = 12.dp
+    val SpaceL = 16.dp
+    val SpaceXL = 24.dp
+    val SpaceXXL = 32.dp
+    
+    // 圆角系统
+    val RadiusS = 8.dp
+    val RadiusM = 12.dp
+    val RadiusL = 16.dp
+    val RadiusXL = 24.dp
+    
+    // 字体大小系统
+    val FontCaption = 12.sp
+    val FontSmall = 13.sp
+    val FontBody = 14.sp
+    val FontSubtitle = 16.sp
+    val FontTitle = 18.sp
+    val FontTime = 28.sp
+    val FontTimeLarge = 64.sp
+}
 
-// ========== 背景色 ==========
-val BackgroundDark = Color(0xFF0A1628) // 深邃蓝黑
-val SurfaceDark = Color(0xFF132238)    // 卡片背景
-val SurfaceLight = Color(0xFF1E3348)   // 稍亮卡片
-val SurfaceGlass = Color(0x801E3348)   // 玻璃效果背景
-
-// ========== 文字色 ==========
-val TextPrimary = Color(0xFFFFFFFF)
-val TextSecondary = Color(0xFFB0BEC5)
-val TextHint = Color(0xFF607D8B)
-
-// ========== 功能色 ==========
-val Success = Color(0xFF4CAF50)        // 电量绿
-val Warning = Color(0xFFFFC107)        // 油量黄
-val Error = Color(0xFFFF5252)          // 警告红
-val Info = Color(0xFF03A9F4)           // 信息蓝
-
-// ========== 特殊功能色 ==========
-val TirePressureNormal = Color(0xFF4CAF50)  // 胎压正常-绿色
-val TirePressureWarning = Color(0xFFFFC107) // 胎压警告-黄色
-val BatteryHigh = Color(0xFF4CAF50)         // 电量高-绿色
-val BatteryMedium = Color(0xFFFFC107)       // 电量中-黄色
-val BatteryLow = Color(0xFFFF5252)          // 电量低-红色
-val FuelFull = Color(0xFF4CAF50)            // 油满-绿色
-val FuelLow = Color(0xFFFF5252)             // 油少-红色
-
-// ========== 渐变色 ==========
-val GradientStart = Color(0xFF00D4FF)
-val GradientEnd = Color(0xFF0066CC)
-
-// ========== 状态栏专用 ==========
-val StatusBarBg = Color(0x40000000)        // 状态栏半透明背景
+/**
+ * 赛博朋克配色方案
+ */
+object CyberpunkColors {
+    // ========== 霓虹主色调 ==========
+    val NeonCyan = Color(0xFF00FFFF)      // 霓虹青色
+    val NeonPink = Color(0xFFFF00FF)      // 霓虹粉色
+    val NeonYellow = Color(0xFFFFFF00)    // 霓虹黄色
+    val NeonPurple = Color(0xFF9D00FF)    // 霓虹紫色
+    val NeonBlue = Color(0xFF0080FF)      // 霓虹蓝色
+    val NeonGreen = Color(0xFF00FF41)     // 霓虹绿色
+    val NeonOrange = Color(0xFFFF6600)    // 霓虹橙色
+    val NeonRed = Color(0xFFFF003C)       // 霓虹红色
+    
+    // ========== 背景色系 ==========
+    val BackgroundDark = Color(0xFF0A0E27)        // 深空黑
+    val BackgroundCard = Color(0x80000000)         // 卡片背景（半透明黑）
+    
+    // ========== 文字颜色 ==========
+    val TextPrimary = Color(0xFFFFFFFF)            // 纯白色
+    val TextSecondary = Color(0xB3FFFFFF)          // 白色70%
+    val TextHint = Color(0x66FFFFFF)               // 白色40%
+    
+    // ========== 功能色 ==========
+    val StatusOnline = NeonGreen                   // 在线状态
+    val StatusOffline = Color(0xFF666666)          // 离线状态
+    val Warning = NeonYellow                       // 警告
+    val Error = NeonRed                            // 错误
+    
+    // ========== 特殊效果色 ==========
+    val GlowCyan = Color(0x4000FFFF)               // 青色发光
+    val GlowPink = Color(0x40FF00FF)               // 粉色发光
+    val GlowYellow = Color(0x40FFFF00)             // 黄色发光
+    
+    // ========== 渐变色 ==========
+    val GradientStart = Color(0xFF1a1f3a)
+    val GradientEnd = Color(0xFF0d1025)
+}
