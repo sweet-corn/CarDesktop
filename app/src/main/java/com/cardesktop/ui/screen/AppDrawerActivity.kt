@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.cardesktop.data.model.AppInfo
 import com.cardesktop.data.repository.AppRepository
 import com.cardesktop.ui.theme.*
@@ -210,8 +212,8 @@ private fun AppIconItem(
         ) {
             // 如果有图标则显示图标，否则显示首字母
             if (app.icon != null) {
-                androidx.compose.foundation.Image(
-                    painter = app.icon!!,
+                Image(
+                    painter = com.cardesktop.ui.widget.drawablePainter(app.icon),
                     contentDescription = app.label,
                     modifier = Modifier.size(48.dp)
                 )

@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.cardesktop.ui.theme.BackgroundDark
+import com.cardesktop.ui.theme.CyberpunkColors
 
 /**
  * 主桌面 Activity
@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = BackgroundDark
+                    color = CyberpunkColors.BackgroundDark
                 ) {
                     MainScreen()
                 }
