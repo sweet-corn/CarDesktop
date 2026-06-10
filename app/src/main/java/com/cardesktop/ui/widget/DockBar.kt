@@ -2,8 +2,6 @@ package com.cardesktop.ui.widget
 
 import android.content.Context
 import android.content.Intent
-import android.media.MediaMetadataRetriever
-import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,7 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,28 +21,21 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.cardesktop.ui.theme.*
+import com.cardesktop.ui.theme.CyberpunkColors
+import com.cardesktop.ui.theme.ResponsiveDimensions
 
 /**
- * 赛博朋克风格底部 Dock 栏 - 与功能卡片栏一致的霓虹风格
- * 
- * 布局结构：
- * [⚙️车辆设置] | [🏠主页] | [< 20°C >空调] | [🎵音乐] | [❄️空调] | ... | [⊞全应用]
- * 
- * 特点：
- * - 霓虹发光边框（与功能卡片一致）
- * - 渐变色分隔线
- * - 音乐播放器集成
+ * 赛博朋克风格底部 Dock 栏 - 自适应版本
  */
 @Composable
 fun FrostedGlassDockBar(
+    dim: ResponsiveDimensions,
     onSettingsClick: () -> Unit = {},
     onAppDrawerClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     
-    // Dock栏整体容器 - 半透明背景
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -56,16 +47,16 @@ fun FrostedGlassDockBar(
                     )
                 )
             )
-            .padding(vertical = Dimens.SpaceS)
+            .padding(vertical = dim.spaceS)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = Dimens.SpaceM),
-            horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS),
+                .padding(horizontal = dim.spaceM),
+            horizontalArrangement = Arrangement.spacedBy(dim.spaceS),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // ========== 1. 车件设置按钮（霓虹橙色）==========
+            // 1. 车件设置按钮（霓虹橙色）
             NeonDockItem(
                 icon = "⚙️",
                 label = "车辆设置",
@@ -74,100 +65,97 @@ fun FrostedGlassDockBar(
                     context.startActivity(Intent(Settings.ACTION_SETTINGS).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
                     })
-                }
+                },
+                dim = dim
             )
 
-            // 渐变分隔线
-            GradientSeparator()
+            GradientSeparator(dim)
 
-            // ========== 2. 主页按钮（霓虹青色高亮）==========
+            // 2. 主页按钮（霓虹青色高亮）
             NeonDockItem(
                 icon = "🏠",
                 label = "主页",
                 neonColor = CyberpunkColors.NeonCyan,
                 onClick = {},
-                isHighlight = true
+                isHighlight = true,
+                dim = dim
             )
 
-            // 渐变分隔线
-            GradientSeparator()
+            GradientSeparator(dim)
 
-            // ========== 3. 空调温度控制（霓虹蓝色）==========
-            NeonTemperatureControl()
+            // 3. 空调温度控制（霓虹蓝色）
+            NeonTemperatureControl(dim)
 
-            // 渐变分隔线
-            GradientSeparator()
+            GradientSeparator(dim)
 
-            // ========== 4. 自定义app卡槽-音乐（霓虹粉色）==========
+            // 4. 自定义app卡槽-音乐（霓虹粉色）
             NeonDockItem(
                 icon = "🎵",
                 label = "音乐",
                 neonColor = CyberpunkColors.NeonPink,
-                onClick = { openMusicApp(context) }
+                onClick = { openMusicApp(context) },
+                dim = dim
             )
 
-            // 渐变分隔线
-            GradientSeparator()
+            GradientSeparator(dim)
 
-            // ========== 5. 空调按钮（霓虹紫色）==========
+            // 5. 空调按钮（霓虹紫色）
             NeonDockItem(
                 icon = "❄️",
                 label = "空调",
                 neonColor = CyberpunkColors.NeonPurple,
-                onClick = {}
+                onClick = {},
+                dim = dim
             )
 
-            // 弹性空间
             Spacer(modifier = Modifier.weight(1f))
 
-            // 渐变分隔线
-            GradientSeparator()
+            GradientSeparator(dim)
 
-            // ========== 6. 全应用按钮（霓虹绿色）==========
+            // 6. 全应用按钮（霓虹绿色）
             NeonDockItem(
                 icon = "⊞",
                 label = "全部应用",
                 neonColor = CyberpunkColors.NeonGreen,
-                onClick = onAppDrawerClick
+                onClick = onAppDrawerClick,
+                dim = dim
             )
         }
     }
 }
 
-/**
- * 霓虹风格 Dock 图标项 - 与功能卡片一致的样式
- */
 @Composable
 private fun NeonDockItem(
     icon: String,
     label: String = "",
     neonColor: Color,
     onClick: () -> Unit,
-    isHighlight: Boolean = false
+    isHighlight: Boolean = false,
+    dim: ResponsiveDimensions
 ) {
     Column(
         modifier = Modifier
-            .width(Dimens.TouchTarget)
+            .width(dim.touchTarget)
             .shadow(
-                elevation = 6.dp,
-                shape = RoundedCornerShape(Dimens.RadiusM),
+                elevation = (6 * dim.scaleFactor).dp.coerceAtLeast(3.dp),
+                shape = RoundedCornerShape(dim.radiusM),
                 ambientColor = if (isHighlight) neonColor.copy(alpha = 0.8f) else neonColor.copy(alpha = 0.4f),
                 spotColor = if (isHighlight) neonColor else Color.Transparent
             )
-            .clip(RoundedCornerShape(Dimens.RadiusM))
+            .clip(RoundedCornerShape(dim.radiusM))
             .background(Color(0x80000000))
             .border(
-                width = if (isHighlight) 2.dp else 1.dp,
+                width = if (isHighlight) (2 * dim.scaleFactor).dp.coerceAtLeast(1.dp) else (1 * dim.scaleFactor).dp.coerceAtLeast(0.5.dp),
                 color = if (isHighlight) neonColor.copy(alpha = 0.9f) else neonColor.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(Dimens.RadiusM)
+                shape = RoundedCornerShape(dim.radiusM)
             )
             .clickable(onClick = onClick)
-            .padding(Dimens.SpaceXS),
+            .padding(dim.spaceXS),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = icon,
-            fontSize = 28.sp,
+            fontSize = dim.dockItemIconSize.sp,
             color = if (isHighlight) neonColor else Color.White
         )
         
@@ -175,22 +163,19 @@ private fun NeonDockItem(
             Text(
                 text = label,
                 color = if (isHighlight) neonColor.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.7f),
-                fontSize = 11.sp
+                fontSize = dim.dockItemLabelSize.sp
             )
         }
     }
 }
 
-/**
- * 渐变色分隔线
- */
 @Composable
-private fun GradientSeparator() {
+private fun GradientSeparator(dim: ResponsiveDimensions) {
     Box(
         modifier = Modifier
-            .width(1.dp)
-            .height(40.dp)
-            .clip(RoundedCornerShape(0.5.dp))
+            .width(dim.dockSeparatorWidth)
+            .height(dim.dockSeparatorHeight)
+            .clip(RoundedCornerShape(dim.dockSeparatorRadius))
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
@@ -204,34 +189,30 @@ private fun GradientSeparator() {
     )
 }
 
-/**
- * 温度控制区域 - 霓虹风格
- */
 @Composable
-private fun NeonTemperatureControl() {
+private fun NeonTemperatureControl(dim: ResponsiveDimensions) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceXS),
+        horizontalArrangement = Arrangement.spacedBy(dim.spaceXS),
         modifier = Modifier
             .shadow(
-                elevation = 6.dp,
-                shape = RoundedCornerShape(Dimens.RadiusL),
+                elevation = (6 * dim.scaleFactor).dp.coerceAtLeast(3.dp),
+                shape = RoundedCornerShape(dim.radiusL),
                 ambientColor = CyberpunkColors.NeonBlue.copy(alpha = 0.4f),
                 spotColor = CyberpunkColors.NeonBlue
             )
-            .clip(RoundedCornerShape(Dimens.RadiusL))
+            .clip(RoundedCornerShape(dim.radiusL))
             .background(Color(0x80000000))
             .border(
-                width = 1.dp,
+                width = (1 * dim.scaleFactor).dp.coerceAtLeast(0.5.dp),
                 color = CyberpunkColors.NeonBlue.copy(alpha = 0.6f),
-                shape = RoundedCornerShape(Dimens.RadiusL)
+                shape = RoundedCornerShape(dim.radiusL)
             )
-            .padding(horizontal = Dimens.SpaceM, vertical = Dimens.SpaceS)
+            .padding(horizontal = dim.spaceM, vertical = dim.spaceS)
     ) {
-        // 左箭头（降温）
         Box(
             modifier = Modifier
-                .size(32.dp)
+                .size(dim.dockTempButtonSize)
                 .clip(CircleShape)
                 .background(CyberpunkColors.NeonBlue.copy(alpha = 0.2f))
                 .clickable(onClick = { /* 降温 */ }),
@@ -240,23 +221,21 @@ private fun NeonTemperatureControl() {
             Text(
                 text = "<",
                 color = CyberpunkColors.NeonBlue,
-                fontSize = 20.sp,
+                fontSize = (20 * dim.scaleFactor).sp.coerceIn(14f, 30f),
                 fontWeight = FontWeight.Bold
             )
         }
 
-        // 温度数值显示
         Text(
             text = "20°C",
             color = CyberpunkColors.NeonBlue,
-            fontSize = 18.sp,
+            fontSize = dim.dockTempTextSize.sp,
             fontWeight = FontWeight.Medium
         )
 
-        // 右箭头（升温）
         Box(
             modifier = Modifier
-                .size(32.dp)
+                .size(dim.dockTempButtonSize)
                 .clip(CircleShape)
                 .background(CyberpunkColors.NeonBlue.copy(alpha = 0.2f))
                 .clickable(onClick = { /* 升温 */ }),
@@ -265,46 +244,9 @@ private fun NeonTemperatureControl() {
             Text(
                 text = ">",
                 color = CyberpunkColors.NeonBlue,
-                fontSize = 20.sp,
+                fontSize = (20 * dim.scaleFactor).sp.coerceIn(14f, 30f),
                 fontWeight = FontWeight.Bold
             )
         }
-    }
-}
-
-/**
- * 打开音乐应用
- */
-private fun openMusicApp(context: Context) {
-    try {
-        val intent = context.packageManager.getLaunchIntentForPackage("com.tencent.qqmusic")
-        if (intent != null) {
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            context.startActivity(intent)
-            return
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-
-    try {
-        val intent = context.packageManager.getLaunchIntentForPackage("com.kugou.android")
-        if (intent != null) {
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            context.startActivity(intent)
-            return
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-
-    try {
-        val intent = Intent(Intent.ACTION_MAIN).apply {
-            addCategory(Intent.CATEGORY_APP_MUSIC)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        }
-        context.startActivity(intent)
-    } catch (e: Exception) {
-        e.printStackTrace()
     }
 }

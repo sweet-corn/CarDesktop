@@ -27,69 +27,68 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.cardesktop.ui.theme.*
+import com.cardesktop.ui.theme.CyberpunkColors
+import com.cardesktop.ui.theme.ResponsiveDimensions
 
 /**
- * 赛博朋克风格顶部状态栏 - 霓虹青色时间 + 状态图标
+ * 赛博朋克风格顶部状态栏 - 自适应版本
  */
 @Composable
 fun CyberpunkStatusBar(
     time: String = "20:44",
+    dim: ResponsiveDimensions,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .background(Color.Transparent)
-            .padding(horizontal = Dimens.SpaceXL, vertical = Dimens.SpaceS),
+            .padding(horizontal = dim.spaceXL, vertical = dim.spaceS),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 左侧：霓虹青色时间
         Text(
             text = time,
             color = CyberpunkColors.NeonCyan,
-            fontSize = 20.sp,
+            fontSize = dim.statusBarIconSize.sp,
             fontWeight = FontWeight.Medium,
-            letterSpacing = 1.sp
+            letterSpacing = (1 * dim.scaleFactor).sp
         )
 
-        // 右侧：系统状态图标（白色）
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceM),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                NeonStatusIcon(icon = "📍", size = 18.dp)
-                NeonStatusIcon(icon = "🔇", size = 18.dp)
-                NeonStatusIcon(icon = "📶", size = 18.dp)
-                NeonStatusIcon(icon = "📡", size = 18.dp)
-                NeonStatusIcon(icon = "🔋", size = 18.dp)
-            }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(dim.spaceM),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            NeonStatusIcon(icon = "📍", size = dim.statusBarIconSize)
+            NeonStatusIcon(icon = "🔇", size = dim.statusBarIconSize)
+            NeonStatusIcon(icon = "📶", size = dim.statusBarIconSize)
+            NeonStatusIcon(icon = "📡", size = dim.statusBarIconSize)
+            NeonStatusIcon(icon = "🔋", size = dim.statusBarIconSize)
+        }
     }
 }
 
 @Composable
-private fun NeonStatusIcon(icon: String, size: Dp) {
-    Text(text = icon, fontSize = 18.sp, color = Color.White)
+private fun NeonStatusIcon(icon: String, size: Float) {
+    Text(text = icon, fontSize = size.sp, color = Color.White)
 }
 
-/**
- * 赛博朋克壁纸卡片 - 霓虹发光边框 + CYBERPUNK艺术字
- */
 @Composable
-fun CyberpunkWallpaperCard(modifier: Modifier = Modifier) {
-    // 外层：霓虹发光边框容器
+fun CyberpunkWallpaperCard(
+    dim: ResponsiveDimensions,
+    modifier: Modifier = Modifier
+) {
     Box(
         modifier = modifier
             .fillMaxSize()
             .shadow(
-                elevation = 12.dp,
-                shape = RoundedCornerShape(Dimens.RadiusXL),
+                elevation = dim.cardShadowElevation + 4.dp,
+                shape = RoundedCornerShape(dim.wallpaperCornerRadius),
                 ambientColor = CyberpunkColors.NeonCyan,
                 spotColor = CyberpunkColors.NeonPink
             )
             .border(
-                width = 3.dp,
+                width = dim.wallpaperBorderWidth,
                 brush = Brush.horizontalGradient(
                     colors = listOf(
                         CyberpunkColors.NeonCyan,
@@ -97,16 +96,15 @@ fun CyberpunkWallpaperCard(modifier: Modifier = Modifier) {
                         CyberpunkColors.NeonCyan
                     )
                 ),
-                shape = RoundedCornerShape(Dimens.RadiusXL)
+                shape = RoundedCornerShape(dim.wallpaperCornerRadius)
             )
-            .padding(3.dp),
+            .padding(dim.wallpaperPadding),
         contentAlignment = Alignment.Center
     ) {
-        // 内层：壁纸内容区域
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(Dimens.RadiusXL - 4.dp))
+                .clip(RoundedCornerShape(dim.wallpaperCornerRadius - dim.wallpaperPadding))
                 .background(Color.Black),
             contentAlignment = Alignment.Center
         ) {
@@ -114,13 +112,12 @@ fun CyberpunkWallpaperCard(modifier: Modifier = Modifier) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // CYBERPUNK 艺术字（黄色霓虹）
                 Text(
                     text = "CYBERPUNK",
                     color = CyberpunkColors.NeonYellow,
-                    fontSize = 48.sp,
+                    fontSize = (48 * dim.scaleFactor).sp.coerceIn(28f, 72f),
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 8.sp,
+                    letterSpacing = (8 * dim.scaleFactor).sp,
                     style = androidx.compose.ui.text.TextStyle(
                         shadow = androidx.compose.ui.graphics.Shadow(
                             color = CyberpunkColors.GlowYellow,
@@ -130,103 +127,97 @@ fun CyberpunkWallpaperCard(modifier: Modifier = Modifier) {
                     )
                 )
                 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height((16 * dim.scaleFactor).dp))
                 
                 Text(
                     text = "🌃 霓虹城市夜景壁纸",
                     color = CyberpunkColors.TextHint,
-                    fontSize = 14.sp
+                    fontSize = (14 * dim.scaleFactor).sp.coerceIn(10f, 20f)
                 )
             }
         }
     }
 }
 
-/**
- * 霓虹功能卡片行 - 所有卡片带发光边框
- * 顺序：导航 | 音乐 | 车辆控制 | 胎压 | 设置
- */
 @Composable
-fun NeonFunctionCardsRow(modifier: Modifier = Modifier) {
+fun NeonFunctionCardsRow(
+    dim: ResponsiveDimensions,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     
     Row(
         modifier = modifier
             .fillMaxWidth()
             .background(Color.Transparent)
-            .padding(horizontal = Dimens.SpaceL, vertical = Dimens.SpaceS),
-        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceM),
+            .padding(horizontal = dim.spaceL, vertical = dim.spaceS),
+        horizontalArrangement = Arrangement.spacedBy(dim.spaceM),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 1. 导航卡片（青色霓虹边框）
         NeonCard(
             neonColor = CyberpunkColors.NeonCyan,
             onClick = { openNavigationApp(context) },
-            content = { NavigationCardContent() },
-            modifier = Modifier.width(180.dp).height(90.dp)
+            content = { NavigationCardContent(dim = dim) },
+            modifier = Modifier.width(dim.cardNavigationWidth).height(dim.cardHeight)
         )
 
-        // 2. 音乐播放器卡片（粉色霓虹边框）
         NeonCard(
             neonColor = CyberpunkColors.NeonPink,
             onClick = { openMusicApp(context) },
-            content = { MediaPlayerCardContent() },
-            modifier = Modifier.weight(1f).height(90.dp)
+            content = { MediaPlayerCardContent(dim = dim) },
+            modifier = Modifier.weight(1f).height(dim.cardHeight)
         )
 
-        // 3. 车辆控制卡片（紫色霓虹边框）
         NeonCard(
             neonColor = CyberpunkColors.NeonPurple,
             onClick = {},
-            content = { VehicleControlCardContent() },
-            modifier = Modifier.width(200.dp).height(90.dp)
+            content = { VehicleControlCardContent(dim = dim) },
+            modifier = Modifier.width(dim.cardVehicleWidth).height(dim.cardHeight)
         )
 
-        // 4. 胎压信息卡片（蓝色霓虹边框）
         NeonCard(
             neonColor = CyberpunkColors.NeonBlue,
             onClick = {},
-            content = { TirePressureCardContent() },
-            modifier = Modifier.width(200.dp).height(90.dp)
+            content = { TirePressureCardContent(dim = dim) },
+            modifier = Modifier.width(dim.cardTireWidth).height(dim.cardHeight)
         )
 
-        // 5. 设置按钮（橙色霓虹边框）
         NeonCard(
             neonColor = CyberpunkColors.NeonOrange,
             onClick = { 
                 context.startActivity(Intent(context, com.cardesktop.ui.screen.SettingsActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             },
-            content = { SettingsButtonContent() },
-            modifier = Modifier.size(90.dp)
+            content = { SettingsButtonContent(dim = dim) },
+            modifier = Modifier.size(dim.cardSettingsSize)
         )
     }
 }
 
-/**
- * 霓虹发光卡片容器 - 核心组件
- */
 @Composable
 private fun NeonCard(
     neonColor: Color,
     onClick: () -> Unit,
     content: @Composable () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    dim: ResponsiveDimensions? = null
 ) {
+    val effectiveDim = dim ?: responsiveDimensions()
+    
     Box(
         modifier = modifier
             .shadow(
-                elevation = 8.dp,
-                shape = RoundedCornerShape(Dimens.RadiusL),
+                elevation = effectiveDim.cardShadowElevation,
+                shape = RoundedCornerShape(effectiveDim.radiusL),
                 ambientColor = neonColor.copy(alpha = 0.6f),
                 spotColor = neonColor
             )
-            .clip(RoundedCornerShape(Dimens.RadiusL))
+            .clip(RoundedCornerShape(effectiveDim.radiusL))
             .background(CyberpunkColors.BackgroundCard)
             .border(
-                width = 2.dp,
+                width = effectiveDim.cardBorderWidth,
                 color = neonColor.copy(alpha = 0.7f),
-                shape = RoundedCornerShape(Dimens.RadiusL)
+                shape = RoundedCornerShape(effectiveDim.radiusL)
             )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
@@ -235,187 +226,227 @@ private fun NeonCard(
     }
 }
 
-// ========== 卡片内容组件 ==========
+// ========== 卡片内容组件（自适应）==========
 
-/**
- * 导航卡片内容
- */
 @Composable
-private fun NavigationCardContent() {
+private fun NavigationCardContent(dim: ResponsiveDimensions) {
     Row(
-        modifier = Modifier.padding(horizontal = Dimens.SpaceM, vertical = Dimens.SpaceS),
-        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceL),
+        modifier = Modifier.padding(horizontal = dim.spaceM, vertical = dim.spaceS),
+        horizontalArrangement = Arrangement.spacedBy(dim.spaceL),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = "🗺️", fontSize = 28.sp)
+        Text(text = "🗺️", fontSize = (28 * dim.scaleFactor).sp.coerceIn(20f, 42f))
         
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            NeonText(label = "回家")
-            NeonText(label = "去公司")
+            NeonText(label = "回家", fontSize = (13 * dim.scaleFactor).sp.coerceIn(10f, 20f))
+            NeonText(label = "去公司", fontSize = (13 * dim.scaleFactor).sp.coerceIn(10f, 20f))
         }
 
-        Text(text = "🏢", fontSize = 28.sp)
+        Text(text = "🏢", fontSize = (28 * dim.scaleFactor).sp.coerceIn(20f, 42f))
     }
 }
 
-/**
- * 音乐播放器卡片内容 - 完整的桌面音乐控制
- * 
- * 功能：
- * - 左侧图标：点击选择音乐APP
- * - 中间：歌曲信息 + 歌词显示
- * - 右侧：上一曲/播放暂停/下一曲控制按钮
- */
 @Composable
-private fun MediaPlayerCardContent() {
+private fun MediaPlayerCardContent(dim: ResponsiveDimensions) {
     val context = LocalContext.current
     
-    // 音乐状态
     var isPlaying by remember { mutableStateOf(false) }
     var currentSong by remember { mutableStateOf("等待播放") }
-    var currentArtist by remember { mutableStateOf("") }
-    var lyrics by remember { mutableStateOf("") }
-    
-    // 显示选择音乐APP对话框
     var showMusicAppSelector by remember { mutableStateOf(false) }
 
-    Row(
-        modifier = Modifier.padding(horizontal = Dimens.SpaceL, vertical = Dimens.SpaceS),
-        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceM),
-        verticalAlignment = Alignment.CenterVertically
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(dim.spaceS),
+        contentAlignment = Alignment.Center
     ) {
-        // ========== 1. 左侧音乐图标（可点击选择APP）==========
-        Box(
+        Row(
             modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(CyberpunkColors.NeonPink.copy(alpha = 0.2f))
-                .border(
-                    width = 1.5.dp,
-                    color = CyberpunkColors.NeonPink.copy(alpha = 0.6f),
-                    shape = CircleShape
-                )
-                .clickable(onClick = { showMusicAppSelector = true }),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .height(dim.musicCardFixedHeight),
+            horizontalArrangement = Arrangement.spacedBy(dim.spaceM, Alignment.CenterVertically),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "🎵", fontSize = 28.sp)
-        }
+            Box(
+                modifier = Modifier
+                    .size(dim.musicIconSize)
+                    .clip(RoundedCornerShape(dim.radiusM))
+                    .background(CyberpunkColors.NeonPink.copy(alpha = 0.2f))
+                    .border(
+                        width = (2 * dim.scaleFactor).dp,
+                        color = CyberpunkColors.NeonPink.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(dim.radiusM)
+                    )
+                    .clickable(onClick = { showMusicAppSelector = true }),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "🎵", fontSize = dim.musicIconEmoji.sp)
+            }
+            
+            Spacer(modifier = Modifier.width((8 * dim.scaleFactor).dp))
 
-        // ========== 2. 中间：歌曲信息和歌词 ==========
-        Column(
-            modifier = Modifier.weight(1f),
-            horizontalAlignment = Alignment.Start
-        ) {
-            // 歌曲名称 + 收藏图标
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceXS)
+            Column(
+                modifier = Modifier.weight(1f).height((56 * dim.scaleFactor).dp.coerceAtLeast(40.dp)),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.Start
             ) {
                 Text(
                     text = currentSong,
                     color = Color.White,
-                    fontSize = 14.sp,
+                    fontSize = dim.musicSongNameSize.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1
                 )
                 
-                // 收藏/喜欢图标（心形）
-                Text(
-                    text = "❤️",
-                    fontSize = 16.sp,
-                    modifier = Modifier.clickable(onClick = { /* 切换收藏状态 */ })
-                )
-            }
-
-            // 艺术家名称（如果有）
-            if (currentArtist.isNotEmpty()) {
-                Text(
-                    text = currentArtist,
-                    color = CyberpunkColors.TextSecondary,
-                    fontSize = 12.sp,
-                    maxLines = 1
-                )
-            } else {
-                Spacer(modifier = Modifier.height(4.dp))
-            }
-
-            // 歌词显示区域（单行滚动）
-            if (lyrics.isNotEmpty() && isPlaying) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(16.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(CyberpunkColors.NeonPink.copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Text(
-                        text = lyrics,
-                        color = CyberpunkColors.NeonPink.copy(alpha = 0.8f),
-                        fontSize = 11.sp,
-                        maxLines = 1
-                    )
+                Spacer(modifier = Modifier.height((4 * dim.scaleFactor).dp))
+                
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "❤️", fontSize = dim.musicHeartIcon.sp)
+                    
+                    Spacer(modifier = Modifier.width((8 * dim.scaleFactor).dp))
+                    
+                    if (isPlaying) {
+                        Text(
+                            text = "~ 正在播放 ~",
+                            color = CyberpunkColors.NeonPink.copy(alpha = 0.8f),
+                            fontSize = dim.musicStatusSize.sp
+                        )
+                    } else {
+                        Text(
+                            text = "点击▶播放",
+                            color = CyberpunkColors.TextHint,
+                            fontSize = dim.musicStatusSize.sp
+                        )
+                    }
                 }
             }
-        }
 
-        // ========== 3. 右侧：播放控制按钮 ==========
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // 上一曲按钮
-            NeonControlButton(
-                icon = "⏮️",
-                onClick = { sendMediaCommand(context, "previous") },
-                size = 40.dp
-            )
+            Spacer(modifier = Modifier.width((8 * dim.scaleFactor).dp))
 
-            // 播放/暂停按钮（主按钮）
-            NeonControlButton(
-                icon = if (isPlaying) "⏸️" else "▶️",
-                onClick = { 
-                    isPlaying = !isPlaying
-                    sendMediaCommand(context, if (isPlaying) "pause" else "play")
-                    
-                    // 模拟歌词更新（实际应从媒体控制器获取）
-                    if (isPlaying) {
-                        currentSong = "正在播放..."
-                        currentArtist = "未知艺术家"
-                        lyrics = "~ 正在获取歌词 ~"
-                    }
-                },
-                size = 48.dp,
-                isMainButton = true
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(dim.spaceS),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                NeonControlButton(
+                    icon = "⏮️",
+                    onClick = { sendMediaCommand(context, "previous") },
+                    size = dim.musicControlButtonSmall
+                )
 
-            // 下一曲按钮
-            NeonControlButton(
-                icon = "⏭️",
-                onClick = { sendMediaCommand(context, "next") },
-                size = 40.dp
-            )
+                NeonControlButton(
+                    icon = if (isPlaying) "⏸️" else "▶️",
+                    onClick = { 
+                        isPlaying = !isPlaying
+                        currentSong = if (isPlaying) "正在播放..." else "已暂停"
+                        sendMediaCommand(context, if (isPlaying) "play" else "pause")
+                    },
+                    size = dim.musicControlButtonMain,
+                    isMainButton = true
+                )
+
+                NeonControlButton(
+                    icon = "⏭️",
+                    onClick = { sendMediaCommand(context, "next") },
+                    size = dim.musicControlButtonSmall
+                )
+            }
         }
     }
 
-    // 音乐APP选择器对话框
     if (showMusicAppSelector) {
-        MusicAppSelectorDialog(
+        SimpleMusicAppDialog(
+            dim = dim,
             onDismiss = { showMusicAppSelector = false },
             onAppSelected = { packageName ->
                 openSpecificMusicApp(context, packageName)
                 showMusicAppSelector = false
-                currentSong = "连接中..."
-                currentArtist = ""
-                lyrics = ""
             }
         )
     }
 }
 
-/**
- * 霓虹风格控制按钮
- */
+@Composable
+private fun VehicleControlCardContent(dim: ResponsiveDimensions) {
+    Row(
+        modifier = Modifier.padding(horizontal = dim.spaceM, vertical = dim.spaceS),
+        horizontalArrangement = Arrangement.spacedBy(dim.spaceM),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = "🚙", fontSize = (48 * dim.scaleFactor).sp.coerceIn(32f, 72f))
+
+        Column {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(dim.spaceS),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                VehicleControlItem(icon = "🔓", text = "已开门", dim = dim)
+                VehicleControlItem(icon = "💡", text = "已开启", dim = dim)
+            }
+        }
+    }
+}
+
+@Composable
+private fun VehicleControlItem(icon: String, text: String, dim: ResponsiveDimensions) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text = icon, fontSize = (20 * dim.scaleFactor).sp.coerceIn(14f, 30f))
+        NeonText(label = text, fontSize = (13 * dim.scaleFactor).sp.coerceIn(10f, 20f))
+    }
+}
+
+@Composable
+private fun TirePressureCardContent(dim: ResponsiveDimensions) {
+    Row(
+        modifier = Modifier.padding(horizontal = dim.spaceM, vertical = dim.spaceS),
+        horizontalArrangement = Arrangement.spacedBy(dim.spaceS),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            NeonTireValue(value = 222f, dim = dim)
+            NeonTireValue(value = 232f, dim = dim)
+        }
+
+        Text(text = "🚗", fontSize = (40 * dim.scaleFactor).sp.coerceIn(28f, 60f))
+
+        Column {
+            NeonTireValue(value = 222f, dim = dim)
+            NeonTireValue(value = 233f, dim = dim)
+        }
+    }
+}
+
+@Composable
+private fun NeonTireValue(value: Float, dim: ResponsiveDimensions) {
+    Text(
+        text = "${value.toInt()} kPa",
+        color = CyberpunkColors.NeonCyan,
+        fontSize = (13 * dim.scaleFactor).sp.coerceIn(9f, 20f),
+        fontWeight = FontWeight.Medium
+    )
+}
+
+@Composable
+private fun SettingsButtonContent(dim: ResponsiveDimensions) {
+    Column(
+        modifier = Modifier.padding(dim.spaceS),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(text = "⚙️", fontSize = (32 * dim.scaleFactor).sp.coerceIn(24f, 48f))
+        Spacer(modifier = Modifier.height((4 * dim.scaleFactor).dp))
+        NeonText(label = "设置", fontSize = (13 * dim.scaleFactor).sp.coerceIn(10f, 20f))
+    }
+}
+
+@Composable
+private fun NeonText(label: String, color: Color = CyberpunkColors.TextSecondary, fontSize: Float = 13f) {
+    Text(
+        text = label,
+        color = color,
+        fontSize = fontSize.sp
+    )
+}
+
 @Composable
 private fun NeonControlButton(
     icon: String,
@@ -431,12 +462,17 @@ private fun NeonControlButton(
                 if (isMainButton) {
                     Modifier.background(CyberpunkColors.NeonPink.copy(alpha = 0.3f))
                         .border(
-                            width = 2.dp,
-                            color = CyberpunkColors.NeonPink.copy(alpha = 0.8f),
+                            width = (2.5 * (size.value / 52)).dp.coerceAtLeast(1.5.dp),
+                            color = CyberpunkColors.NeonPink,
                             shape = CircleShape
                         )
                 } else {
-                    Modifier.background(Color.Transparent)
+                    Modifier.background(CyberpunkColors.BackgroundCard)
+                        .border(
+                            width = (1.5 * (size.value / 44)).dp.coerceAtLeast(1.dp),
+                            color = CyberpunkColors.TextSecondary.copy(alpha = 0.5f),
+                            shape = CircleShape
+                        )
                 }
             )
             .clickable(onClick = onClick),
@@ -444,15 +480,128 @@ private fun NeonControlButton(
     ) {
         Text(
             text = icon,
-            fontSize = if (isMainButton) 24.sp else 20.sp,
+            fontSize = ((if (isMainButton) 26 else 22) * (size.value / 44)).sp.coerceIn(16f, 32f),
             color = if (isMainButton) CyberpunkColors.NeonPink else Color.White
         )
     }
 }
 
-/**
- * 发送媒体控制命令到当前播放的音乐应用
- */
+@Composable
+private fun SimpleMusicAppDialog(
+    dim: ResponsiveDimensions,
+    onDismiss: () -> Unit,
+    onAppSelected: (String) -> Unit
+) {
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .width(dim.dialogWidth)
+                .shadow(
+                    elevation = (10 * dim.scaleFactor).dp.coerceAtLeast(6.dp),
+                    shape = RoundedCornerShape(dim.radiusL),
+                    ambientColor = CyberpunkColors.NeonPink.copy(alpha = 0.5f),
+                    spotColor = CyberpunkColors.NeonPink
+                )
+                .clip(RoundedCornerShape(dim.radiusL))
+                .background(Color(0xE6000000))
+                .border(
+                    width = (2 * dim.scaleFactor).dp.coerceAtLeast(1.dp),
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            CyberpunkColors.NeonCyan,
+                            CyberpunkColors.NeonPink
+                        )
+                    ),
+                    shape = RoundedCornerShape(dim.radiusL)
+                )
+                .padding(dim.spaceXL)
+        ) {
+            Text(
+                text = "🎵 选择音乐应用",
+                color = CyberpunkColors.NeonCyan,
+                fontSize = dim.dialogTitleSize.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+
+            Spacer(modifier = Modifier.height(dim.spaceXL))
+
+            MusicAppOptionItem(
+                name = "QQ音乐",
+                packageName = "com.tencent.qqmusic",
+                emoji = "🎵",
+                dim = dim,
+                onSelected = onAppSelected
+            )
+
+            Spacer(modifier = Modifier.height(dim.spaceM))
+
+            MusicAppOptionItem(
+                name = "网易云音乐",
+                packageName = "com.netease.cloudmusic",
+                emoji = "🎼",
+                dim = dim,
+                onSelected = onAppSelected
+            )
+
+            Spacer(modifier = Modifier.height(dim.spaceXL))
+
+            Text(
+                text = "取消",
+                color = CyberpunkColors.TextHint,
+                fontSize = dim.dialogCancelSize.sp,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .clickable(onClick = onDismiss)
+                    .padding(horizontal = dim.spaceXL, vertical = dim.spaceS)
+            )
+        }
+    }
+}
+
+@Composable
+private fun MusicAppOptionItem(
+    name: String,
+    packageName: String,
+    emoji: String,
+    dim: ResponsiveDimensions,
+    onSelected: (String) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(dim.radiusM))
+            .background(CyberpunkColors.BackgroundCard)
+            .clickable(onClick = { onSelected(packageName) })
+            .padding(horizontal = dim.spaceL, vertical = dim.spaceM),
+        horizontalArrangement = Arrangement.spacedBy(dim.spaceM),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = emoji, fontSize = dim.dialogAppIconSize.sp)
+
+        Text(
+            text = name,
+            color = Color.White,
+            fontSize = dim.dialogAppNameSize.sp,
+            fontWeight = FontWeight.Medium
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        Text(
+            text = "▶",
+            color = CyberpunkColors.NeonPink,
+            fontSize = (20 * dim.scaleFactor).sp.coerceIn(14f, 30f)
+        )
+    }
+}
+
 private fun sendMediaCommand(context: Context, command: String) {
     try {
         val intent = when (command) {
@@ -470,9 +619,6 @@ private fun sendMediaCommand(context: Context, command: String) {
     }
 }
 
-/**
- * 打开指定的音乐应用
- */
 private fun openSpecificMusicApp(context: Context, packageName: String) {
     try {
         val intent = context.packageManager.getLaunchIntentForPackage(packageName)
@@ -485,216 +631,6 @@ private fun openSpecificMusicApp(context: Context, packageName: String) {
     }
 }
 
-/**
- * 音乐APP选择器对话框
- */
-@Composable
-private fun MusicAppSelectorDialog(
-    onDismiss: () -> Unit,
-    onAppSelected: (String) -> Unit
-) {
-    val musicApps = listOf(
-        Triple("QQ音乐", "com.tencent.qqmusic", "🎵"),
-        Triple("酷狗音乐", "com.kugou.android", "🎶"),
-        Triple("网易云音乐", "com.netease.cloudmusic", "🎼"),
-        Triple("系统音乐", "", "🔊")
-    )
-
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.DialogProperties(
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true,
-            usePlatformDefaultWidth = false
-        )
-    ) {
-        Box(
-            modifier = Modifier
-                .width(400.dp)
-                .shadow(
-                    elevation = 12.dp,
-                    shape = RoundedCornerShape(Dimens.RadiusXL),
-                    ambientColor = CyberpunkColors.NeonPink.copy(alpha = 0.5f),
-                    spotColor = CyberpunkColors.NeonPink
-                )
-                .clip(RoundedCornerShape(Dimens.RadiusXL))
-                .background(Color(0xCC000000))
-                .border(
-                    width = 2.dp,
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            CyberpunkColors.NeonCyan,
-                            CyberpunkColors.NeonPink
-                        )
-                    ),
-                    shape = RoundedCornerShape(Dimens.RadiusXL)
-                )
-                .padding(Dimens.SpaceXL)
-        ) {
-            Column {
-                // 标题
-                Text(
-                    text = "🎵 选择音乐应用",
-                    color = CyberpunkColors.NeonCyan,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-
-                Spacer(modifier = Modifier.height(Dimens.SpaceXL))
-
-                // APP列表
-                musicApps.forEach { (name, packageIcon, emoji) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(Dimens.RadiusM))
-                            .background(CyberpunkColors.BackgroundCard)
-                            .clickable(onClick = { onAppSelected(packageIcon) })
-                            .padding(horizontal = Dimens.SpaceL, vertical = Dimens.SpaceM),
-                        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceM),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = packageIcon, fontSize = 32.sp)
-
-                        Text(
-                            text = name,
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-
-                        Spacer(modifier = Modifier.weight(1f))
-
-                        Text(
-                            text = ">",
-                            color = CyberpunkColors.NeonPink,
-                            fontSize = 20.sp
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(Dimens.SpaceS))
-                }
-
-                Spacer(modifier = Modifier.height(Dimens.SpaceL))
-
-                // 取消按钮
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = "取消",
-                        color = CyberpunkColors.TextHint,
-                        fontSize = 14.sp,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(Dimens.RadiusM))
-                            .clickable(onClick = onDismiss)
-                            .padding(horizontal = Dimens.SpaceXL, vertical = Dimens.SpaceS)
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * 车辆控制卡片内容
- */
-@Composable
-private fun VehicleControlCardContent() {
-    Row(
-        modifier = Modifier.padding(horizontal = Dimens.SpaceM, vertical = Dimens.SpaceS),
-        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceM),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(text = "🚙", fontSize = 48.sp)
-
-        Column {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                VehicleControlItem(icon = "🔓", text = "已开门")
-                VehicleControlItem(icon = "💡", text = "已开启")
-            }
-        }
-    }
-}
-
-@Composable
-private fun VehicleControlItem(icon: String, text: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = icon, fontSize = 20.sp)
-        NeonText(label = text)
-    }
-}
-
-/**
- * 胎压信息卡片内容
- */
-@Composable
-private fun TirePressureCardContent() {
-    Row(
-        modifier = Modifier.padding(horizontal = Dimens.SpaceM, vertical = Dimens.SpaceS),
-        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            NeonTireValue(value = 222f)
-            NeonTireValue(value = 232f)
-        }
-
-        Text(text = "🚗", fontSize = 40.sp)
-
-        Column {
-            NeonTireValue(value = 222f)
-            NeonTireValue(value = 233f)
-        }
-    }
-}
-
-@Composable
-private fun NeonTireValue(value: Float) {
-    Text(
-        text = "${value.toInt()} kPa",
-        color = CyberpunkColors.NeonCyan,
-        fontSize = 13.sp,
-        fontWeight = FontWeight.Medium
-    )
-}
-
-/**
- * 设置按钮内容
- */
-@Composable
-private fun SettingsButtonContent() {
-    Column(
-        modifier = Modifier.padding(Dimens.SpaceS),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(text = "⚙️", fontSize = 32.sp)
-        Spacer(modifier = Modifier.height(4.dp))
-        NeonText(label = "设置")
-    }
-}
-
-/**
- * 霓虹风格文字标签
- */
-@Composable
-private fun NeonText(label: String, color: Color = CyberpunkColors.TextSecondary) {
-    Text(
-        text = label,
-        color = color,
-        fontSize = 13.sp
-    )
-}
-
-/**
- * 打开导航应用 - 智能启动策略
- */
 private fun openNavigationApp(context: Context) {
     try {
         val intent = context.packageManager.getLaunchIntentForPackage("com.autonavi.minimap")
@@ -729,9 +665,6 @@ private fun openNavigationApp(context: Context) {
     }
 }
 
-/**
- * 打开音乐应用
- */
 private fun openMusicApp(context: Context) {
     try {
         val intent = context.packageManager.getLaunchIntentForPackage("com.tencent.qqmusic")
