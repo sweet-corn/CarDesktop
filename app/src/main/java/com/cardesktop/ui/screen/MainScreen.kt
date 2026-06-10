@@ -4,15 +4,13 @@ import android.content.ComponentName
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.cardesktop.data.model.AppInfo
@@ -20,21 +18,20 @@ import com.cardesktop.ui.theme.*
 import com.cardesktop.ui.widget.*
 
 /**
- * 主桌面屏幕
+ * 比亚迪车机桌面 - 主屏幕
  *
- * 布局结构：
- * ┌──────────────────────────────────────┐
- * │  状态栏 (日期 + 时间 + 系统图标)      │
- * ├────────┬─────────────────┬───────────┤
- * │        │                 │           │
- * │ 时钟   │   应用网格       │  天气     │
- * │ Widget │                 │  Widget   │
- * │        │                 │           │
- * ├────────┴─────────────────┴───────────┤
- * │  快捷操作栏 (导航/音乐/电话/相机)     │
- * ├──────────────────────────────────────┤
- * │  Dock 栏 (全部应用 ... 固定应用 设置) │
- * └──────────────────────────────────────┘
+ * 布局结构（参考图片1）：
+ * ┌──────────────────────────────────────────────┐
+ * │  状态栏 (PRND | 油量 | 电量 | 温度 | 时间)   │
+ * ├──────────────────────────────────────────────┤
+ * │                                              │
+ * │              背景图区域（建筑/车辆）           │
+ * │                                              │
+ * ├──────────────────────────────────────────────┤
+ * │ [胎压] [行程] [车辆控制] [快捷应用]          │
+ * ├──────────────────────────────────────────────┤
+ * │  Dock栏 (主页|天气|音乐|导航|...|设置)       │
+ * └──────────────────────────────────────────────┘
  */
 @Composable
 fun MainScreen(viewModel: MainViewModel = viewModel()) {
@@ -43,8 +40,6 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
     val date by viewModel.currentDate.collectAsState()
     val apps by viewModel.apps.collectAsState()
     val shortcuts by viewModel.shortcuts.collectAsState()
-    val dockApps by viewModel.dockApps.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
 
     fun launchApp(app: AppInfo) {
         val intent = app.launchIntent?.let {
@@ -65,65 +60,135 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // ========== 1. 顶部状态栏 ==========
-            StatusBar(time = time, date = date)
+            // ========== 1. 顶部状态栏（比亚迪风格）==========
+            BYDStatusBar(
+                gear = "P",
+                fuelLevel = 60,
+                batteryLevel = 99,
+                temperature = 23,
+                time = time
+            )
 
-            // ========== 2. 主内容区 ==========
-            Row(
+            // ========== 2. 主内容区域 ==========
+            Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // 左侧：时钟
-                ClockWidget(
-                    time = time,
-                    date = date,
+                // 背景占位（实际项目中可替换为壁纸）
+                Box(
                     modifier = Modifier
-                        .width(200.dp)
-                        .fillMaxHeight()
-                )
+                        .fillMaxSize()
+                        .background(SurfaceDark.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // 这里可以放置背景图片或3D渲染
+                    // 暂时使用渐变色模拟
+                    Text(
+                        text = "🏛️",
+                        fontSize = 120.sp,
+                        color = TextPrimary.copy(alpha = 0.1f)
+                    )
+                }
 
-                // 中间：应用网格
-                if (!isLoading && shortcuts.isNotEmpty()) {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(4),
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        contentPadding = PaddingValues(8.dp)
+                // 底部信息卡片层
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = Dimens.SpaceXL, vertical = Dimens.SpaceL),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.SpaceM)
+                ) {
+                    // 第一行：胎压 + 行程 + 车辆控制 + 快捷应用
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceM),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        items(shortcuts, key = { it.packageName }) { app ->
-                            DesktopAppIcon(
-                                app = app,
-                                onClick = { launchApp(app) },
-                                iconSize = 64.dp
-                            )
+                        // 胎压卡片
+                        TirePressureCard(
+                            frontLeft = 282f,
+                            frontRight = 282f,
+                            rearLeft = 277f,
+                            rearRight = 280f,
+                            modifier = Modifier.width(180.dp)
+                        )
+
+                        Spacer(modifier = Modifier.width(Dimens.SpaceS))
+
+                        // 行程信息卡片
+                        TripInfoCard(
+                            distance = 0.0f,
+                            energyConsumption = 0.0f,
+                            duration = "3分钟",
+                            modifier = Modifier.weight(1f).height(Dimens.CardHeightMedium)
+                        )
+
+                        Spacer(modifier = Modifier.width(Dimens.SpaceS))
+
+                        // 车辆控制面板
+                        VehicleControlPanel(
+                            onVehicleClick = { /* 打开车辆总览 */ },
+                            onLockClick = { /* 切换主驾锁 */ },
+                            onModeClick = { /* 切换驾驶模式 */ },
+                            modifier = Modifier.height(Dimens.CardHeightMedium)
+                        )
+
+                        Spacer(modifier = Modifier.width(Dimens.SpaceS))
+
+                        // 快捷应用组
+                        QuickAppsRow(
+                            onAppClick = { app ->
+                                when (app.name) {
+                                    "智能助手" -> { /* 打开智能助手 */ }
+                                    "蓝牙电话" -> { /* 打开电话 */ }
+                                    "优酷视频" -> { /* 打开视频 */ }
+                                    "设置" -> {
+                                        context.startActivity(
+                                            Intent(context, SettingsActivity::class.java)
+                                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        )
+                                    }
+                                }
+                            },
+                            modifier = Modifier.height(Dimens.CardHeightMedium)
+                        )
+                    }
+
+                    // 第二行：右侧胎压补充信息（可选）
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 右侧小胎压卡片（简化版）
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            SmallTirePressureDisplay(pressure = 257f, label = "")
+                            CarIconSmall()
+                            SmallTirePressureDisplay(pressure = 260f, label = "")
                         }
                     }
                 }
-
-                // 右侧：天气
-                WeatherWidget(
-                    modifier = Modifier
-                        .width(200.dp)
-                        .fillMaxHeight()
-                )
             }
 
-            // ========== 3. 快捷操作栏 ==========
-            QuickActionBar()
-
-            // ========== 4. 底部 Dock 栏 ==========
-            DockBar(
-                dockApps = dockApps,
-                onAppClick = ::launchApp,
+            // ========== 3. 底部 Dock 栏（比亚迪风格）==========
+            BYDDockBar(
+                onHomeClick = { /* 已在主页 */ },
+                onWeatherClick = { /* 显示天气详情 */ },
+                onMusicClick = { /* 打开音乐 */ },
+                onNavClick = { /* 打开导航 */ },
                 onAppDrawerClick = {
                     context.startActivity(
                         Intent(context, AppDrawerActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                },
+                onSettingsClick = {
+                    context.startActivity(
+                        Intent(context, SettingsActivity::class.java)
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     )
                 }
@@ -133,51 +198,37 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
 }
 
 /**
- * 快捷操作栏
+ * 小型胎压显示（用于底部右侧）
  */
 @Composable
-private fun QuickActionBar() {
-    val context = LocalContext.current
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
+private fun SmallTirePressureDisplay(
+    pressure: Float,
+    label: String
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(horizontal = Dimens.SpaceS)
     ) {
-        QuickActionCard(
-            icon = "🗺️",
-            label = "导航",
-            onClick = {
-                // 尝试打开高德/百度地图
-                val intent = context.packageManager
-                    .getLaunchIntentForPackage("com.autonavi.minimap")
-                    ?: context.packageManager.getLaunchIntentForPackage("com.baidu.BaiduMap")
-                intent?.let { context.startActivity(it) }
-            },
-            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+        Text(
+            text = "${pressure.toInt()} kPa",
+            color = TirePressureNormal,
+            fontSize = Dimens.FontCaption,
+            fontWeight = FontWeight.Medium
         )
-        QuickActionCard(
-            icon = "🎵",
-            label = "音乐",
-            onClick = { /* 打开音乐 */ },
-            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
-        )
-        QuickActionCard(
-            icon = "📞",
-            label = "电话",
-            onClick = { /* 打开电话 */ },
-            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
-        )
-        QuickActionCard(
-            icon = "📷",
-            label = "相机",
-            onClick = {
-                val intent = context.packageManager
-                    .getLaunchIntentForPackage("com.android.camera2")
-                intent?.let { context.startActivity(it) }
-            },
-            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
-        )
+        if (label.isNotEmpty()) {
+            Text(
+                text = label,
+                color = TextHint,
+                fontSize = Dimens.FontSmall
+            )
+        }
     }
+}
+
+/**
+ * 小型车辆图标
+ */
+@Composable
+private fun CarIconSmall() {
+    Text(text = "🚗", fontSize = 36.sp)
 }
