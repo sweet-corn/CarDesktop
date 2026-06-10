@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -12,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.cardesktop.data.model.AppInfo
 import com.cardesktop.ui.theme.*
@@ -195,40 +197,4 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
             )
         }
     }
-}
-
-/**
- * 小型胎压显示（用于底部右侧）
- */
-@Composable
-private fun SmallTirePressureDisplay(
-    pressure: Float,
-    label: String
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(horizontal = Dimens.SpaceS)
-    ) {
-        Text(
-            text = "${pressure.toInt()} kPa",
-            color = TirePressureNormal,
-            fontSize = Dimens.FontCaption,
-            fontWeight = FontWeight.Medium
-        )
-        if (label.isNotEmpty()) {
-            Text(
-                text = label,
-                color = TextHint,
-                fontSize = Dimens.FontSmall
-            )
-        }
-    }
-}
-
-/**
- * 小型车辆图标
- */
-@Composable
-private fun CarIconSmall() {
-    Text(text = "🚗", fontSize = 36.sp)
 }

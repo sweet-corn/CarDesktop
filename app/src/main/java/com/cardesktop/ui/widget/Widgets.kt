@@ -83,7 +83,7 @@ fun BYDStatusBar(
                     fontSize = Dimens.FontCaption
                 )
                 LinearProgressIndicator(
-                    progress = { batteryLevel / 100f },
+                    progress = batteryLevel / 100f,
                     modifier = Modifier.width(60.dp).height(6.dp),
                     color = when {
                         batteryLevel > 60 -> BatteryHigh
@@ -422,8 +422,7 @@ private fun QuickAppButton(
             .background(SurfaceLight.copy(alpha = 0.6f))
             .clickable(onClick = onClick)
             .padding(Dimens.SpaceS),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalAlignment = Alignment.CenterVertically
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(text = app.icon, fontSize = 32.sp)
         Spacer(modifier = Modifier.height(4.dp))
@@ -446,8 +445,7 @@ fun LargeClockWidget(
 ) {
     Column(
         modifier = modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalAlignment = Alignment.CenterVertically
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = time,
@@ -580,4 +578,40 @@ private fun MediaControlButton(
             fontSize = if (isMain) 28.sp else 24.sp
         )
     }
+}
+
+/**
+ * 小型胎压显示（用于底部右侧）
+ */
+@Composable
+fun SmallTirePressureDisplay(
+    pressure: Float,
+    label: String
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(horizontal = Dimens.SpaceS)
+    ) {
+        Text(
+            text = "${pressure.toInt()} kPa",
+            color = TirePressureNormal,
+            fontSize = Dimens.FontCaption,
+            fontWeight = FontWeight.Medium
+        )
+        if (label.isNotEmpty()) {
+            Text(
+                text = label,
+                color = TextHint,
+                fontSize = Dimens.FontSmall
+            )
+        }
+    }
+}
+
+/**
+ * 小型车辆图标
+ */
+@Composable
+fun CarIconSmall() {
+    Text(text = "🚗", fontSize = 36.sp)
 }

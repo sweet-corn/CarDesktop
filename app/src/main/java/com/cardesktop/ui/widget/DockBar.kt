@@ -93,8 +93,7 @@ private fun DockBarItem(
             .background(if (isHighlight) Primary.copy(alpha = 0.15f) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(Dimens.SpaceS),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalAlignment = Alignment.CenterVertically
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = icon,
@@ -126,8 +125,7 @@ private fun DockBarItemWithTemp(
             .background(Color.Transparent)
             .clickable(onClick = onClick)
             .padding(Dimens.SpaceS),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalAlignment = Alignment.CenterVertically
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
