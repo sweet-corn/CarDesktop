@@ -10,6 +10,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -20,19 +23,23 @@ import com.cardesktop.ui.theme.*
 import com.cardesktop.ui.widget.*
 
 /**
- * 比亚迪车机桌面 - 主屏幕
+ * 比亚迪车机桌面 - 完全按照参考图还原
  *
- * 布局结构（参考图片1）：
+ * 布局结构：
  * ┌──────────────────────────────────────────────┐
- * │  状态栏 (PRND | 油量 | 电量 | 温度 | 时间)   │
+ * │ 状态栏: [20:44]              [📍 🔇 📶 🔋] │
  * ├──────────────────────────────────────────────┤
  * │                                              │
- * │              背景图区域（建筑/车辆）           │
- * │                                              │
+ * │  20:44          ┌──────────────────┐        │
+ * │  6月9日 星期二   │                  │        │
+ * │                 │   壁纸图片区域    │        │
+ * │                 │                  │        │
+ * │                 └──────────────────┘        │
+ │                                              │
  * ├──────────────────────────────────────────────┤
- * │ [胎压] [行程] [车辆控制] [快捷应用]          │
+ * │[导航][媒体播放][车辆控制][胎压]      [设置]│
  * ├──────────────────────────────────────────────┤
- * │  Dock栏 (主页|天气|音乐|导航|...|设置)       │
+ * │ ⚙️ 🏠 < 20°C > 🎵 ✈️ ... 🌤️ 🚗 ⊞ (毛玻璃)│
  * └──────────────────────────────────────────────┘
  */
 @Composable
@@ -40,8 +47,6 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
     val context = LocalContext.current
     val time by viewModel.currentTime.collectAsState()
     val date by viewModel.currentDate.collectAsState()
-    val apps by viewModel.apps.collectAsState()
-    val shortcuts by viewModel.shortcuts.collectAsState()
 
     fun launchApp(app: AppInfo) {
         val intent = app.launchIntent?.let {
@@ -50,26 +55,19 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
         } ?: context.packageManager.getLaunchIntentForPackage(app.packageName)
-
         intent?.let { context.startActivity(it) }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BackgroundDark)
+            .background(Color.Black)
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // ========== 1. 顶部状态栏（比亚迪风格）==========
-            BYDStatusBar(
-                gear = "P",
-                fuelLevel = 60,
-                batteryLevel = 99,
-                temperature = 23,
-                time = time
-            )
+            // ========== 1. 顶部状态栏 ==========
+            TopStatusBar(time = time)
 
             // ========== 2. 主内容区域 ==========
             Box(
@@ -77,120 +75,77 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                // 背景占位（实际项目中可替换为壁纸）
+                // 背景（深色渐变）
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(SurfaceDark.copy(alpha = 0.3f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // 这里可以放置背景图片或3D渲染
-                    // 暂时使用渐变色模拟
-                    Text(
-                        text = "🏛️",
-                        fontSize = 120.sp,
-                        color = TextPrimary.copy(alpha = 0.1f)
-                    )
-                }
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0xFF1a237e),
+                                    Color(0xFF0d47a1),
+                                    Color(0xFF01579b)
+                                )
+                            )
+                        )
+                )
 
-                // 底部信息卡片层
-                Column(
+                // 内容层
+                Row(
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(horizontal = Dimens.SpaceXL, vertical = Dimens.SpaceL),
-                    verticalArrangement = Arrangement.spacedBy(Dimens.SpaceM)
+                        .fillMaxSize()
+                        .padding(top = Dimens.SpaceXXL),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceL)
                 ) {
-                    // 第一行：胎压 + 行程 + 车辆控制 + 快捷应用
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceM),
-                        verticalAlignment = Alignment.CenterVertically
+                    // 左侧：大时钟
+                    Column(
+                        modifier = Modifier
+                            .padding(start = Dimens.SpaceXL)
+                            .align(Alignment.Top),
+                        horizontalAlignment = Alignment.Start
                     ) {
-                        // 胎压卡片
-                        TirePressureCard(
-                            frontLeft = 282f,
-                            frontRight = 282f,
-                            rearLeft = 277f,
-                            rearRight = 280f,
-                            modifier = Modifier.width(180.dp)
+                        Text(
+                            text = time,
+                            color = Color.White,
+                            fontSize = 64.sp,
+                            fontWeight = FontWeight.Light,
+                            letterSpacing = 2.sp
                         )
-
-                        Spacer(modifier = Modifier.width(Dimens.SpaceS))
-
-                        // 行程信息卡片
-                        TripInfoCard(
-                            distance = 0.0f,
-                            energyConsumption = 0.0f,
-                            duration = "3分钟",
-                            modifier = Modifier.weight(1f).height(Dimens.CardHeightMedium)
-                        )
-
-                        Spacer(modifier = Modifier.width(Dimens.SpaceS))
-
-                        // 车辆控制面板
-                        VehicleControlPanel(
-                            onVehicleClick = { /* 打开车辆总览 */ },
-                            onLockClick = { /* 切换主驾锁 */ },
-                            onModeClick = { /* 切换驾驶模式 */ },
-                            modifier = Modifier.height(Dimens.CardHeightMedium)
-                        )
-
-                        Spacer(modifier = Modifier.width(Dimens.SpaceS))
-
-                        // 快捷应用组
-                        QuickAppsRow(
-                            onAppClick = { app ->
-                                when (app.name) {
-                                    "智能助手" -> { /* 打开智能助手 */ }
-                                    "蓝牙电话" -> { /* 打开电话 */ }
-                                    "优酷视频" -> { /* 打开视频 */ }
-                                    "设置" -> {
-                                        context.startActivity(
-                                            Intent(context, SettingsActivity::class.java)
-                                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        )
-                                    }
-                                }
-                            },
-                            modifier = Modifier.height(Dimens.CardHeightMedium)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = date,
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 18.sp
                         )
                     }
 
-                    // 第二行：右侧胎压补充信息（可选）
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
+                    // 右侧：壁纸图片区域
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .padding(end = Dimens.SpaceXL, top = Dimens.SpaceM, bottom = Dimens.SpaceL),
+                        contentAlignment = Alignment.Center
                     ) {
-                        // 右侧小胎压卡片（简化版）
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            SmallTirePressureDisplay(pressure = 257f, label = "")
-                            CarIconSmall()
-                            SmallTirePressureDisplay(pressure = 260f, label = "")
-                        }
+                        WallpaperCard()
                     }
                 }
             }
 
-            // ========== 3. 底部 Dock 栏（比亚迪风格）==========
-            BYDDockBar(
-                onHomeClick = { /* 已在主页 */ },
-                onWeatherClick = { /* 显示天气详情 */ },
-                onMusicClick = { /* 打开音乐 */ },
-                onNavClick = { /* 打开导航 */ },
-                onAppDrawerClick = {
-                    context.startActivity(
-                        Intent(context, AppDrawerActivity::class.java)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
-                },
+            // ========== 3. 功能卡片栏 ==========
+            FunctionCardsRow()
+
+            // ========== 4. 底部 Dock 栏（磨砂玻璃效果）=========
+            FrostedGlassDockBar(
                 onSettingsClick = {
                     context.startActivity(
                         Intent(context, SettingsActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                },
+                onAppDrawerClick = {
+                    context.startActivity(
+                        Intent(context, AppDrawerActivity::class.java)
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     )
                 }
