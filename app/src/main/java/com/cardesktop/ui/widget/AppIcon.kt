@@ -97,7 +97,7 @@ fun DockAppIcon(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = app.label,
-            color = TextSecondary,
+            color = CyberpunkColors.TextSecondary,
             fontSize = Dimens.FontSmall,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
