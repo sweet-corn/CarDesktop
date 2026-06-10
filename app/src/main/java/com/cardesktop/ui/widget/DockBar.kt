@@ -170,3 +170,38 @@ private fun TemperatureControl() {
         )
     }
 }
+
+/**
+ * 打开音乐应用 - 复制自Widgets.kt以解决访问权限问题
+ */
+private fun openMusicApp(context: Context) {
+    try {
+        val intent = Intent(Intent.ACTION_MAIN).apply {
+            `package` = "com.tencent.qqmusic" // QQ音乐
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        try {
+            val intent = Intent(Intent.ACTION_MAIN).apply {
+                `package` = "com.kugou.android" // 酷狗音乐
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+        } catch (e2: Exception) {
+            try {
+                val intent = Intent("android.intent.action.MUSIC_PLAYER").apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+            } catch (e3: Exception) {
+                // 最后尝试打开系统音乐播放器
+                val intent = Intent(Intent.ACTION_MAIN).apply {
+                    addCategory(Intent.CATEGORY_APP_MUSIC)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+            }
+        }
+    }
+}
