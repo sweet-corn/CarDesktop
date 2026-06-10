@@ -1,48 +1,15 @@
 package com.cardesktop.ui.theme
 
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 /**
- * 比亚迪车机桌面主题配置 - 赛博朋克风格
+ * 赛博朋克配色方案
  * 
  * 配色方案：
  * - 主色：霓虹青色 (#00FFFF)
  * - 强调色：霓虹粉色 (#FF00FF)
  * - 警告色：霓虹黄色 (#FFFF00)
  * - 背景：深空黑 (#0A0E27)
- */
-object Dimens {
-    // 触摸目标大小（车机安全标准）
-    val TouchTarget = 72.dp
-    
-    // 间距系统
-    val SpaceXS = 4.dp
-    val SpaceS = 8.dp
-    val SpaceM = 12.dp
-    val SpaceL = 16.dp
-    val SpaceXL = 24.dp
-    val SpaceXXL = 32.dp
-    
-    // 圆角系统
-    val RadiusS = 8.dp
-    val RadiusM = 12.dp
-    val RadiusL = 16.dp
-    val RadiusXL = 24.dp
-    
-    // 字体大小系统
-    val FontCaption = 12.sp
-    val FontSmall = 13.sp
-    val FontBody = 14.sp
-    val FontSubtitle = 16.sp
-    val FontTitle = 18.sp
-    val FontTime = 28.sp
-    val FontTimeLarge = 64.sp
-}
-
-/**
- * 赛博朋克配色方案
  */
 object CyberpunkColors {
     // ========== 霓虹主色调 ==========
