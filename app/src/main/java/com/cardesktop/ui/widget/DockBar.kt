@@ -1,5 +1,6 @@
 package com.cardesktop.ui.widget
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -67,6 +68,7 @@ fun openMusicApp(context: Context) {
 @Composable
 fun FrostedGlassDockBar(
     dim: ResponsiveDimensions,
+    onBackClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     onAppDrawerClick: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -93,24 +95,31 @@ fun FrostedGlassDockBar(
             horizontalArrangement = Arrangement.spacedBy(dim.spaceS),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 1. 车件设置按钮（霓虹橙色）
+            // 1. 返回按钮（霓虹红色）
             NeonDockItem(
-                icon = "⚙️",
-                label = "车辆设置",
-                neonColor = CyberpunkColors.NeonOrange,
-                onClick = { 
-                    context.startActivity(Intent(Settings.ACTION_SETTINGS).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    })
-                },
+                icon = "←",
+                label = "返回",
+                neonColor = CyberpunkColors.NeonRed,
+                onClick = onBackClick,
                 dim = dim
             )
 
             GradientSeparator(dim)
 
-            // 2. 主页按钮（霓虹青色高亮）
+            // 2. 车件设置按钮（霓虹橙色）
             NeonDockItem(
-                icon = "🏠",
+                icon = "⚙️",
+                label = "车辆设置",
+                neonColor = CyberpunkColors.NeonOrange,
+                onClick = onSettingsClick,
+                dim = dim
+            )
+
+            GradientSeparator(dim)
+
+            // 3. 主页按钮（霓虹青色高亮）
+            NeonDockItem(
+                icon = "",
                 label = "主页",
                 neonColor = CyberpunkColors.NeonCyan,
                 onClick = {},
@@ -120,12 +129,12 @@ fun FrostedGlassDockBar(
 
             GradientSeparator(dim)
 
-            // 3. 空调温度控制（霓虹蓝色）
+            // 4. 空调温度控制（霓虹蓝色）
             NeonTemperatureControl(dim)
 
             GradientSeparator(dim)
 
-            // 4. 自定义app卡槽-音乐（霓虹粉色）
+            // 5. 自定义app卡槽-音乐（霓虹粉色）
             NeonDockItem(
                 icon = "🎵",
                 label = "音乐",
@@ -136,7 +145,7 @@ fun FrostedGlassDockBar(
 
             GradientSeparator(dim)
 
-            // 5. 空调按钮（霓虹紫色）
+            // 6. 空调按钮（霓虹紫色）
             NeonDockItem(
                 icon = "❄️",
                 label = "空调",
@@ -149,7 +158,7 @@ fun FrostedGlassDockBar(
 
             GradientSeparator(dim)
 
-            // 6. 全应用按钮（霓虹绿色）
+            // 7. 全应用按钮（霓虹绿色）
             NeonDockItem(
                 icon = "⊞",
                 label = "全部应用",

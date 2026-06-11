@@ -2,12 +2,12 @@ package com.cardesktop.ui.screen
 
 import android.content.ComponentName
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -30,18 +30,20 @@ import com.cardesktop.ui.widget.*
  * - 所有元素按比例缩放
  * - 保持视觉一致性
  * - 支持小屏(7寸)、中屏(7-10寸)、大屏(>10寸)
+ * - Dock栏常驻最上层
+ * - 设置和应用抽屉使用弹窗形式
  * 
  * 布局结构：
  * ┌──────────────────────────────────────────────┐
  * │ 状态栏: [时间]              [图标]            │
- * ├──────────────────────────────────────────────┤
+ * ├──────────────────────────────────────────────
  * │                                              │
  * │  [大时钟]        [壁纸区域]                  │
  * │                                              │
  * ├──────────────────────────────────────────────┤
  * │ [功能卡片栏 - 自适应宽度]                    │
  * ├──────────────────────────────────────────────┤
- * │ [Dock栏 - 自适应间距和大小]                  │
+ * │ [Dock栏 - 常驻最上层]                        │
  * └──────────────────────────────────────────────┘
  */
 @Composable
@@ -52,6 +54,19 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
     
     // 获取响应式尺寸
     val dim = responsiveDimensions()
+
+    // 弹窗状态
+    var showSettingsDialog by rememberSaveable { mutableStateOf(false) }
+    var showAppDrawerDialog by rememberSaveable { mutableStateOf(false) }
+
+    // 返回键处理
+    BackHandler(enabled = showSettingsDialog || showAppDrawerDialog) {
+        if (showAppDrawerDialog) {
+            showAppDrawerDialog = false
+        } else if (showSettingsDialog) {
+            showSettingsDialog = false
+        }
+    }
 
     fun launchApp(app: AppInfo) {
         val intent = app.launchIntent?.let {
@@ -148,17 +163,39 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
             // ========== 3. 功能卡片栏（自适应）==========
             NeonFunctionCardsRow(dim = dim)
 
-            // ========== 4. 底部 Dock 栏（自适应）==========
+            // ========== 4. 底部 Dock 栏（自适应，常驻最上层）==========
             FrostedGlassDockBar(
                 dim = dim,
+                onBackClick = {
+                    // 返回逻辑：关闭弹窗或不做操作
+                    if (showAppDrawerDialog) {
+                        showAppDrawerDialog = false
+                    } else if (showSettingsDialog) {
+                        showSettingsDialog = false
+                    }
+                },
                 onSettingsClick = {
-                    context.startActivity(Intent(context, SettingsActivity::class.java)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    showSettingsDialog = true
                 },
                 onAppDrawerClick = {
-                    context.startActivity(Intent(context, AppDrawerActivity::class.java)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    showAppDrawerDialog = true
                 }
+            )
+        }
+
+        // ========== 5. 弹窗层（覆盖在Dock栏之上）==========
+        if (showSettingsDialog) {
+            CyberpunkSettingsDialog(
+                dim = dim,
+                onDismiss = { showSettingsDialog = false }
+            )
+        }
+
+        if (showAppDrawerDialog) {
+            CyberpunkAppDrawerDialog(
+                dim = dim,
+                onDismiss = { showAppDrawerDialog = false },
+                onAppClick = { app -> launchApp(app) }
             )
         }
     }
