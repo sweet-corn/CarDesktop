@@ -115,7 +115,7 @@ fun CyberpunkWallpaperCard(
                 Text(
                     text = "CYBERPUNK",
                     color = CyberpunkColors.NeonYellow,
-                    fontSize = (48 * dim.scaleFactor).sp.coerceIn(28f, 72f),
+                    fontSize = (48 * dim.scaleFactor).coerceIn(28f, 72f).sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (8 * dim.scaleFactor).sp,
                     style = androidx.compose.ui.text.TextStyle(
@@ -132,7 +132,7 @@ fun CyberpunkWallpaperCard(
                 Text(
                     text = "🌃 霓虹城市夜景壁纸",
                     color = CyberpunkColors.TextHint,
-                    fontSize = (14 * dim.scaleFactor).sp.coerceIn(10f, 20f)
+                    fontSize = (14 * dim.scaleFactor).coerceIn(10f, 20f).sp
                 )
             }
         }
@@ -235,14 +235,14 @@ private fun NavigationCardContent(dim: ResponsiveDimensions) {
         horizontalArrangement = Arrangement.spacedBy(dim.spaceL),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = "🗺️", fontSize = (28 * dim.scaleFactor).sp.coerceIn(20f, 42f))
+        Text(text = "️", fontSize = (28 * dim.scaleFactor).coerceIn(20f, 42f).sp)
         
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            NeonText(label = "回家", fontSize = (13 * dim.scaleFactor).sp.coerceIn(10f, 20f))
-            NeonText(label = "去公司", fontSize = (13 * dim.scaleFactor).sp.coerceIn(10f, 20f))
+            NeonText(label = "回家", fontSize = (13 * dim.scaleFactor).coerceIn(10f, 20f).sp)
+            NeonText(label = "去公司", fontSize = (13 * dim.scaleFactor).coerceIn(10f, 20f).sp)
         }
 
-        Text(text = "🏢", fontSize = (28 * dim.scaleFactor).sp.coerceIn(20f, 42f))
+        Text(text = "🏢", fontSize = (28 * dim.scaleFactor).coerceIn(20f, 42f).sp)
     }
 }
 
@@ -372,7 +372,7 @@ private fun VehicleControlCardContent(dim: ResponsiveDimensions) {
         horizontalArrangement = Arrangement.spacedBy(dim.spaceM),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = "🚙", fontSize = (48 * dim.scaleFactor).sp.coerceIn(32f, 72f))
+        Text(text = "🚙", fontSize = (48 * dim.scaleFactor).coerceIn(32f, 72f).sp)
 
         Column {
             Row(
@@ -389,8 +389,8 @@ private fun VehicleControlCardContent(dim: ResponsiveDimensions) {
 @Composable
 private fun VehicleControlItem(icon: String, text: String, dim: ResponsiveDimensions) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = icon, fontSize = (20 * dim.scaleFactor).sp.coerceIn(14f, 30f))
-        NeonText(label = text, fontSize = (13 * dim.scaleFactor).sp.coerceIn(10f, 20f))
+        Text(text = icon, fontSize = (20 * dim.scaleFactor).coerceIn(14f, 30f).sp)
+        NeonText(label = text, fontSize = (13 * dim.scaleFactor).coerceIn(10f, 20f).sp)
     }
 }
 
@@ -406,7 +406,7 @@ private fun TirePressureCardContent(dim: ResponsiveDimensions) {
             NeonTireValue(value = 232f, dim = dim)
         }
 
-        Text(text = "🚗", fontSize = (40 * dim.scaleFactor).sp.coerceIn(28f, 60f))
+        Text(text = "", fontSize = (40 * dim.scaleFactor).coerceIn(28f, 60f).sp)
 
         Column {
             NeonTireValue(value = 222f, dim = dim)
@@ -420,7 +420,7 @@ private fun NeonTireValue(value: Float, dim: ResponsiveDimensions) {
     Text(
         text = "${value.toInt()} kPa",
         color = CyberpunkColors.NeonCyan,
-        fontSize = (13 * dim.scaleFactor).sp.coerceIn(9f, 20f),
+        fontSize = (13 * dim.scaleFactor).coerceIn(9f, 20f).sp,
         fontWeight = FontWeight.Medium
     )
 }
@@ -432,9 +432,9 @@ private fun SettingsButtonContent(dim: ResponsiveDimensions) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(text = "⚙️", fontSize = (32 * dim.scaleFactor).sp.coerceIn(24f, 48f))
+        Text(text = "️", fontSize = (32 * dim.scaleFactor).coerceIn(24f, 48f).sp)
         Spacer(modifier = Modifier.height((4 * dim.scaleFactor).dp))
-        NeonText(label = "设置", fontSize = (13 * dim.scaleFactor).sp.coerceIn(10f, 20f))
+        NeonText(label = "设置", fontSize = (13 * dim.scaleFactor).coerceIn(10f, 20f).sp)
     }
 }
 
@@ -480,7 +480,7 @@ private fun NeonControlButton(
     ) {
         Text(
             text = icon,
-            fontSize = ((if (isMainButton) 26 else 22) * (size.value / 44)).sp.coerceIn(16f, 32f),
+            fontSize = ((if (isMainButton) 26 else 22) * (size.value / 44)).coerceIn(16f, 32f).sp,
             color = if (isMainButton) CyberpunkColors.NeonPink else Color.White
         )
     }
@@ -597,7 +597,7 @@ private fun MusicAppOptionItem(
         Text(
             text = "▶",
             color = CyberpunkColors.NeonPink,
-            fontSize = (20 * dim.scaleFactor).sp.coerceIn(14f, 30f)
+            fontSize = (20 * dim.scaleFactor).coerceIn(14f, 30f).sp
         )
     }
 }
@@ -657,40 +657,6 @@ private fun openNavigationApp(context: Context) {
     try {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             data = android.net.Uri.parse("geo:0,0?q=")
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        }
-        context.startActivity(intent)
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-}
-
-private fun openMusicApp(context: Context) {
-    try {
-        val intent = context.packageManager.getLaunchIntentForPackage("com.tencent.qqmusic")
-        if (intent != null) {
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            context.startActivity(intent)
-            return
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-
-    try {
-        val intent = context.packageManager.getLaunchIntentForPackage("com.kugou.android")
-        if (intent != null) {
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            context.startActivity(intent)
-            return
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-
-    try {
-        val intent = Intent(Intent.ACTION_MAIN).apply {
-            addCategory(Intent.CATEGORY_APP_MUSIC)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
         context.startActivity(intent)
