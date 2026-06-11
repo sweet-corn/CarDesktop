@@ -2,26 +2,27 @@ package com.cardesktop.ui.widget
 
 import android.content.Context
 import android.content.Intent
+import android.media.AudioManager
 import android.provider.Settings
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -143,6 +144,7 @@ fun CyberpunkWallpaperCard(
 @Composable
 fun NeonFunctionCardsRow(
     dim: ResponsiveDimensions,
+    onDesktopSettingsClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -155,12 +157,7 @@ fun NeonFunctionCardsRow(
         horizontalArrangement = Arrangement.spacedBy(dim.spaceM),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        NeonCard(
-            neonColor = CyberpunkColors.NeonCyan,
-            onClick = { openNavigationApp(context) },
-            content = { NavigationCardContent(dim = dim) },
-            modifier = Modifier.width(dim.cardNavigationWidth).height(dim.cardHeight)
-        )
+        NavigationCardWithAppSelector(dim = dim)
 
         NeonCard(
             neonColor = CyberpunkColors.NeonPink,
@@ -185,10 +182,7 @@ fun NeonFunctionCardsRow(
 
         NeonCard(
             neonColor = CyberpunkColors.NeonOrange,
-            onClick = { 
-                context.startActivity(Intent(context, com.cardesktop.ui.screen.SettingsActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            },
+            onClick = onDesktopSettingsClick,
             content = { SettingsButtonContent(dim = dim) },
             modifier = Modifier.size(dim.cardSettingsSize)
         )
@@ -229,6 +223,223 @@ private fun NeonCard(
 
 // ========== 卡片内容组件（自适应）==========
 
+/**
+ * 导航卡片 - 支持长按切换默认导航应用
+ */
+@Composable
+private fun NavigationCardWithAppSelector(dim: ResponsiveDimensions) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("car_desktop_prefs", Context.MODE_PRIVATE) }
+    
+    var selectedNavApp by remember { 
+        mutableStateOf(prefs.getString("default_nav_app", "com.autonavi.minimap") ?: "com.autonavi.minimap") 
+    }
+    var showNavAppSelector by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+
+    val navAppName = when (selectedNavApp) {
+        "com.autonavi.minimap" -> "高德地图"
+        "com.baidu.BaiduMap" -> "百度地图"
+        "com.tencent.map" -> "腾讯地图"
+        else -> "导航"
+    }
+
+    NeonCard(
+        neonColor = CyberpunkColors.NeonCyan,
+        onClick = { openNavigationApp(context, selectedNavApp) },
+        content = {
+            Box(
+                modifier = Modifier
+                    .width(dim.cardNavigationWidth)
+                    .height(dim.cardHeight)
+                    .combinedClickable(
+                        onClick = { openNavigationApp(context, selectedNavApp) },
+                        onLongClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            showNavAppSelector = true
+                        }
+                    )
+                    .padding(horizontal = dim.spaceM, vertical = dim.spaceS),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(dim.spaceL),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "", fontSize = (28 * dim.scaleFactor).coerceIn(20f, 42f).sp)
+                    
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        NeonText(label = "回家", fontSize = (13 * dim.scaleFactor).coerceIn(10f, 20f))
+                        NeonText(label = "去公司", fontSize = (13 * dim.scaleFactor).coerceIn(10f, 20f))
+                    }
+
+                    Text(text = "🏢", fontSize = (28 * dim.scaleFactor).coerceIn(20f, 42f).sp)
+                }
+                
+                // 当前导航应用标签
+                Text(
+                    text = navAppName,
+                    color = CyberpunkColors.NeonCyan.copy(alpha = 0.7f),
+                    fontSize = (10 * dim.scaleFactor).coerceIn(8f, 14f).sp,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = dim.spaceXS)
+                )
+            }
+        },
+        modifier = Modifier.width(dim.cardNavigationWidth).height(dim.cardHeight),
+        dim = dim
+    )
+
+    if (showNavAppSelector) {
+        NavigationAppDialog(
+            dim = dim,
+            currentApp = selectedNavApp,
+            onDismiss = { showNavAppSelector = false },
+            onAppSelected = { packageName ->
+                prefs.edit().putString("default_nav_app", packageName).apply()
+                selectedNavApp = packageName
+                showNavAppSelector = false
+            }
+        )
+    }
+}
+
+/**
+ * 导航应用选择弹窗
+ */
+@Composable
+private fun NavigationAppDialog(
+    dim: ResponsiveDimensions,
+    currentApp: String,
+    onDismiss: () -> Unit,
+    onAppSelected: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val navApps = listOf(
+        NavAppInfo("高德地图", "com.autonavi.minimap", ""),
+        NavAppInfo("百度地图", "com.baidu.BaiduMap", ""),
+        NavAppInfo("腾讯地图", "com.tencent.map", "")
+    )
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .width(dim.dialogWidth)
+                .shadow(
+                    elevation = (10 * dim.scaleFactor).dp.coerceAtLeast(6.dp),
+                    shape = RoundedCornerShape(dim.radiusL),
+                    ambientColor = CyberpunkColors.NeonCyan.copy(alpha = 0.5f),
+                    spotColor = CyberpunkColors.NeonCyan
+                )
+                .clip(RoundedCornerShape(dim.radiusL))
+                .background(Color(0xE6000000))
+                .border(
+                    width = (2 * dim.scaleFactor).dp.coerceAtLeast(1.dp),
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(CyberpunkColors.NeonCyan, CyberpunkColors.NeonBlue)
+                    ),
+                    shape = RoundedCornerShape(dim.radiusL)
+                )
+                .padding(dim.spaceXL)
+        ) {
+            Text(
+                text = " 选择导航应用",
+                color = CyberpunkColors.NeonCyan,
+                fontSize = dim.dialogTitleSize.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+
+            Spacer(modifier = Modifier.height(dim.spaceXL))
+
+            navApps.forEach { app ->
+                val isInstalled = try {
+                    context.packageManager.getPackageInfo(app.packageName, 0)
+                    true
+                } catch (e: Exception) {
+                    false
+                }
+
+                if (isInstalled) {
+                    NavAppOptionItem(
+                        name = app.name,
+                        packageName = app.packageName,
+                        emoji = app.emoji,
+                        isSelected = currentApp == app.packageName,
+                        dim = dim,
+                        onSelected = { onAppSelected(app.packageName) }
+                    )
+                    Spacer(modifier = Modifier.height(dim.spaceM))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(dim.spaceXL))
+
+            Text(
+                text = "取消",
+                color = CyberpunkColors.TextHint,
+                fontSize = dim.dialogCancelSize.sp,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .clickable(onClick = onDismiss)
+                    .padding(horizontal = dim.spaceXL, vertical = dim.spaceS)
+            )
+        }
+    }
+}
+
+data class NavAppInfo(val name: String, val packageName: String, val emoji: String)
+
+@Composable
+private fun NavAppOptionItem(
+    name: String,
+    packageName: String,
+    emoji: String,
+    isSelected: Boolean,
+    dim: ResponsiveDimensions,
+    onSelected: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(dim.radiusM))
+            .background(
+                if (isSelected) CyberpunkColors.NeonCyan.copy(alpha = 0.2f)
+                else Color(0x30FFFFFF)
+            )
+            .border(
+                width = (1 * dim.scaleFactor).dp.coerceAtLeast(0.5.dp),
+                color = if (isSelected) CyberpunkColors.NeonCyan else Color.Transparent,
+                shape = RoundedCornerShape(dim.radiusM)
+            )
+            .clickable(onClick = onSelected)
+            .padding(dim.spaceM),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(dim.spaceM),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = emoji, fontSize = (24 * dim.scaleFactor).coerceIn(18f, 36f).sp)
+            Text(
+                text = name,
+                color = if (isSelected) CyberpunkColors.NeonCyan else Color.White,
+                fontSize = dim.dialogItemTextSize.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+            )
+        }
+        if (isSelected) {
+            Text(text = "✓", color = CyberpunkColors.NeonCyan, fontSize = dim.dialogItemTextSize.sp)
+        }
+    }
+}
+
 @Composable
 private fun NavigationCardContent(dim: ResponsiveDimensions) {
     Row(
@@ -236,7 +447,7 @@ private fun NavigationCardContent(dim: ResponsiveDimensions) {
         horizontalArrangement = Arrangement.spacedBy(dim.spaceL),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = "️", fontSize = (28 * dim.scaleFactor).coerceIn(20f, 42f).sp)
+        Text(text = "", fontSize = (28 * dim.scaleFactor).coerceIn(20f, 42f).sp)
         
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             NeonText(label = "回家", fontSize = (13 * dim.scaleFactor).coerceIn(10f, 20f))
@@ -604,17 +815,23 @@ private fun MusicAppOptionItem(
 }
 
 private fun sendMediaCommand(context: Context, command: String) {
+    val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    
     try {
-        val intent = when (command) {
-            "play" -> Intent("com.android.music.musicservicecommand.togglepause")
-            "pause" -> Intent("com.android.music.musicservicecommand.pause")
-            "next" -> Intent("com.android.music.musicservicecommand.next")
-            "previous" -> Intent("com.android.music.musicservicecommand.previous")
-            else -> return
+        when (command) {
+            "play" -> audioManager.dispatchMediaKeyEvent(
+                android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+            )
+            "pause" -> audioManager.dispatchMediaKeyEvent(
+                android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+            )
+            "next" -> audioManager.dispatchMediaKeyEvent(
+                android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_NEXT)
+            )
+            "previous" -> audioManager.dispatchMediaKeyEvent(
+                android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS)
+            )
         }
-        
-        intent.putExtra("command", command)
-        context.sendBroadcast(intent)
     } catch (e: Exception) {
         e.printStackTrace()
     }
@@ -632,9 +849,9 @@ private fun openSpecificMusicApp(context: Context, packageName: String) {
     }
 }
 
-private fun openNavigationApp(context: Context) {
+private fun openNavigationApp(context: Context, packageName: String) {
     try {
-        val intent = context.packageManager.getLaunchIntentForPackage("com.autonavi.minimap")
+        val intent = context.packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
             context.startActivity(intent)
@@ -644,17 +861,7 @@ private fun openNavigationApp(context: Context) {
         e.printStackTrace()
     }
 
-    try {
-        val intent = context.packageManager.getLaunchIntentForPackage("com.google.android.apps.maps")
-        if (intent != null) {
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            context.startActivity(intent)
-            return
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-
+    // Fallback: try to open any map app
     try {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             data = android.net.Uri.parse("geo:0,0?q=")

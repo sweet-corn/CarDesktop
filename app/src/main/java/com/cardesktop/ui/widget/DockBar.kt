@@ -1,6 +1,5 @@
 package com.cardesktop.ui.widget
 
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -69,7 +68,6 @@ fun openMusicApp(context: Context) {
 fun FrostedGlassDockBar(
     dim: ResponsiveDimensions,
     onBackClick: () -> Unit = {},
-    onSettingsClick: () -> Unit = {},
     onAppDrawerClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -106,12 +104,16 @@ fun FrostedGlassDockBar(
 
             GradientSeparator(dim)
 
-            // 2. 车件设置按钮（霓虹橙色）
+            // 2. 系统设置按钮（霓虹橙色）
             NeonDockItem(
                 icon = "⚙️",
-                label = "车辆设置",
+                label = "系统设置",
                 neonColor = CyberpunkColors.NeonOrange,
-                onClick = onSettingsClick,
+                onClick = {
+                    context.startActivity(Intent(Settings.ACTION_SETTINGS).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    })
+                },
                 dim = dim
             )
 

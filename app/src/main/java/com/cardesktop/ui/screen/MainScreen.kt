@@ -161,7 +161,10 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
             }
 
             // ========== 3. 功能卡片栏（自适应）==========
-            NeonFunctionCardsRow(dim = dim)
+            NeonFunctionCardsRow(
+                dim = dim,
+                onDesktopSettingsClick = { showSettingsDialog = true }
+            )
 
             // ========== 4. 底部 Dock 栏（自适应，常驻最上层）==========
             FrostedGlassDockBar(
@@ -173,9 +176,6 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
                     } else if (showSettingsDialog) {
                         showSettingsDialog = false
                     }
-                },
-                onSettingsClick = {
-                    showSettingsDialog = true
                 },
                 onAppDrawerClick = {
                     showAppDrawerDialog = true

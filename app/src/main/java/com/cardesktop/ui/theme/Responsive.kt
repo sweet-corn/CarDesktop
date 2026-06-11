@@ -179,6 +179,7 @@ data class ResponsiveDimensions(
     val dialogLargeWidth: Dp = (400 * scaleFactor).dp.coerceAtLeast(300.dp)
     val dialogAppIconSize: Float = (36 * scaleFactor).coerceIn(28f, 54f)
     val dialogAppNameSize: Float = (16 * scaleFactor).coerceIn(13f, 24f)
+    val dialogItemTextSize: Float = (16 * scaleFactor).coerceIn(13f, 24f)
     val dialogTitleSize: Float = (18 * scaleFactor).coerceIn(15f, 28f)
     val dialogCancelSize: Float = (14 * scaleFactor).coerceIn(11f, 21f)
 }
