@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cardesktop.ui.theme.CyberpunkColors
 import com.cardesktop.ui.theme.ResponsiveDimensions
+import com.cardesktop.ui.theme.responsiveDimensions
 
 /**
  * 赛博朋克风格顶部状态栏 - 自适应版本
@@ -238,8 +239,8 @@ private fun NavigationCardContent(dim: ResponsiveDimensions) {
         Text(text = "️", fontSize = (28 * dim.scaleFactor).coerceIn(20f, 42f).sp)
         
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            NeonText(label = "回家", fontSize = (13 * dim.scaleFactor).coerceIn(10f, 20f).sp)
-            NeonText(label = "去公司", fontSize = (13 * dim.scaleFactor).coerceIn(10f, 20f).sp)
+            NeonText(label = "回家", fontSize = (13 * dim.scaleFactor).coerceIn(10f, 20f))
+            NeonText(label = "去公司", fontSize = (13 * dim.scaleFactor).coerceIn(10f, 20f))
         }
 
         Text(text = "🏢", fontSize = (28 * dim.scaleFactor).coerceIn(20f, 42f).sp)
@@ -264,7 +265,7 @@ private fun MediaPlayerCardContent(dim: ResponsiveDimensions) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(dim.musicCardFixedHeight),
-            horizontalArrangement = Arrangement.spacedBy(dim.spaceM, Alignment.CenterVertically),
+            horizontalArrangement = Arrangement.spacedBy(dim.spaceM),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -390,7 +391,7 @@ private fun VehicleControlCardContent(dim: ResponsiveDimensions) {
 private fun VehicleControlItem(icon: String, text: String, dim: ResponsiveDimensions) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(text = icon, fontSize = (20 * dim.scaleFactor).coerceIn(14f, 30f).sp)
-        NeonText(label = text, fontSize = (13 * dim.scaleFactor).coerceIn(10f, 20f).sp)
+        NeonText(label = text, fontSize = (13 * dim.scaleFactor).coerceIn(10f, 20f))
     }
 }
 
@@ -434,7 +435,7 @@ private fun SettingsButtonContent(dim: ResponsiveDimensions) {
     ) {
         Text(text = "️", fontSize = (32 * dim.scaleFactor).coerceIn(24f, 48f).sp)
         Spacer(modifier = Modifier.height((4 * dim.scaleFactor).dp))
-        NeonText(label = "设置", fontSize = (13 * dim.scaleFactor).coerceIn(10f, 20f).sp)
+        NeonText(label = "设置", fontSize = (13 * dim.scaleFactor).coerceIn(10f, 20f))
     }
 }
 
