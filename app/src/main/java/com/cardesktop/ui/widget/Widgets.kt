@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cardesktop.service.MusicController
+import com.cardesktop.service.MusicMetadataService
 import com.cardesktop.ui.theme.CyberpunkColors
 import com.cardesktop.ui.theme.ResponsiveDimensions
 import com.cardesktop.ui.theme.responsiveDimensions
