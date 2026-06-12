@@ -3,16 +3,11 @@ package com.cardesktop.service
 import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
-import android.os.Handler
-import android.os.Looper
 import android.view.KeyEvent
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 object MusicController {
 
     private var audioManager: AudioManager? = null
-    private val mainHandler = Handler(Looper.getMainLooper())
 
     fun init(context: Context) {
         audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
