@@ -15,6 +15,13 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         android:maxSdkVersion="30" />
 
+ <!-- 显示在其他应用上层（悬浮窗/覆盖层） -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- 前台服务（保持Dock栏常驻） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
     <!-- 声明为平板/车机应用，横屏优先 -->
     <uses-feature
         android:name="android.hardware.screen.landscape"
@@ -43,7 +50,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.HOME" />
+                <!-- <category android:name="android.intent.category.HOME" /> -->
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
