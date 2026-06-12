@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.cardesktop.service.MusicController
 import com.cardesktop.ui.theme.CyberpunkColors
 import com.cardesktop.ui.theme.ResponsiveDimensions
 import com.cardesktop.ui.theme.responsiveDimensions
@@ -461,7 +462,7 @@ private fun NavigationCardContent(dim: ResponsiveDimensions) {
 @Composable
 private fun MediaPlayerCardContent(dim: ResponsiveDimensions) {
     val context = LocalContext.current
-    
+
     var isPlaying by remember { mutableStateOf(false) }
     var currentSong by remember { mutableStateOf("等待播放") }
     var showMusicAppSelector by remember { mutableStateOf(false) }
@@ -494,7 +495,7 @@ private fun MediaPlayerCardContent(dim: ResponsiveDimensions) {
             ) {
                 Text(text = "🎵", fontSize = dim.musicIconEmoji.sp)
             }
-            
+
             Spacer(modifier = Modifier.width((8 * dim.scaleFactor).dp))
 
             Column(
@@ -509,14 +510,14 @@ private fun MediaPlayerCardContent(dim: ResponsiveDimensions) {
                     fontWeight = FontWeight.Medium,
                     maxLines = 1
                 )
-                
+
                 Spacer(modifier = Modifier.height((4 * dim.scaleFactor).dp))
-                
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(text = "❤️", fontSize = dim.musicHeartIcon.sp)
-                    
+
                     Spacer(modifier = Modifier.width((8 * dim.scaleFactor).dp))
-                    
+
                     if (isPlaying) {
                         Text(
                             text = "~ 正在播放 ~",
@@ -541,16 +542,24 @@ private fun MediaPlayerCardContent(dim: ResponsiveDimensions) {
             ) {
                 NeonControlButton(
                     icon = "⏮️",
-                    onClick = { sendMediaCommand(context, "previous") },
+                    onClick = {
+                        MusicController.previous()
+                    },
                     size = dim.musicControlButtonSmall
                 )
 
                 NeonControlButton(
                     icon = if (isPlaying) "⏸️" else "▶️",
-                    onClick = { 
-                        isPlaying = !isPlaying
-                        currentSong = if (isPlaying) "正在播放..." else "已暂停"
-                        sendMediaCommand(context, if (isPlaying) "play" else "pause")
+                    onClick = {
+                        if (!isPlaying) {
+                            MusicController.playPause()
+                            isPlaying = true
+                            currentSong = "正在播放..."
+                        } else {
+                            MusicController.playPause()
+                            isPlaying = false
+                            currentSong = "已暂停"
+                        }
                     },
                     size = dim.musicControlButtonMain,
                     isMainButton = true
@@ -558,7 +567,9 @@ private fun MediaPlayerCardContent(dim: ResponsiveDimensions) {
 
                 NeonControlButton(
                     icon = "⏭️",
-                    onClick = { sendMediaCommand(context, "next") },
+                    onClick = {
+                        MusicController.next()
+                    },
                     size = dim.musicControlButtonSmall
                 )
             }
@@ -570,7 +581,7 @@ private fun MediaPlayerCardContent(dim: ResponsiveDimensions) {
             dim = dim,
             onDismiss = { showMusicAppSelector = false },
             onAppSelected = { packageName ->
-                openSpecificMusicApp(context, packageName)
+                MusicController.openMusicApp(context, packageName)
                 showMusicAppSelector = false
             }
         )
@@ -608,30 +619,46 @@ private fun VehicleControlItem(icon: String, text: String, dim: ResponsiveDimens
 
 @Composable
 private fun TirePressureCardContent(dim: ResponsiveDimensions) {
+    val tirePressure by com.cardesktop.service.VehicleService.tirePressure.collectAsState()
+
+    LaunchedEffect(Unit) {
+        com.cardesktop.service.VehicleService.requestTirePressureUpdate()
+    }
+
     Row(
-        modifier = Modifier.padding(horizontal = dim.spaceM, vertical = dim.spaceS),
+        modifier = Modifier
+            .padding(horizontal = dim.spaceM, vertical = dim.spaceS)
+            .clickable { 
+                com.cardesktop.service.VehicleService.requestTirePressureUpdate()
+            },
         horizontalArrangement = Arrangement.spacedBy(dim.spaceS),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column {
-            NeonTireValue(value = 222f, dim = dim)
-            NeonTireValue(value = 232f, dim = dim)
+            NeonTireValue(value = tirePressure.frontLeft, dim = dim, isRealData = tirePressure.isRealData)
+            NeonTireValue(value = tirePressure.rearLeft, dim = dim, isRealData = tirePressure.isRealData)
         }
 
         Text(text = "", fontSize = (40 * dim.scaleFactor).coerceIn(28f, 60f).sp)
 
         Column {
-            NeonTireValue(value = 222f, dim = dim)
-            NeonTireValue(value = 233f, dim = dim)
+            NeonTireValue(value = tirePressure.frontRight, dim = dim, isRealData = tirePressure.isRealData)
+            NeonTireValue(value = tirePressure.rearRight, dim = dim, isRealData = tirePressure.isRealData)
         }
     }
 }
 
 @Composable
-private fun NeonTireValue(value: Float, dim: ResponsiveDimensions) {
+private fun NeonTireValue(value: Float, dim: ResponsiveDimensions, isRealData: Boolean = false) {
+    val color = when {
+        value < 200f || value > 320f -> CyberpunkColors.NeonRed
+        value in 230f..310f -> CyberpunkColors.NeonGreen
+        else -> CyberpunkColors.NeonYellow
+    }
+
     Text(
         text = "${value.toInt()} kPa",
-        color = CyberpunkColors.NeonCyan,
+        color = color,
         fontSize = (13 * dim.scaleFactor).coerceIn(9f, 20f).sp,
         fontWeight = FontWeight.Medium
     )

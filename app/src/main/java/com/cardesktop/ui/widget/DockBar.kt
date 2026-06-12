@@ -151,8 +151,14 @@ fun FrostedGlassDockBar(
             NeonDockItem(
                 icon = "❄️",
                 label = "空调",
-                neonColor = CyberpunkColors.NeonPurple,
-                onClick = {},
+                neonColor = if (com.cardesktop.service.VehicleService.vehicleStatus.value.isACOn) 
+                    CyberpunkColors.NeonPurple 
+                else 
+                    CyberpunkColors.NeonPurple.copy(alpha = 0.6f),
+                onClick = {
+                    com.cardesktop.service.VehicleService.toggleAC()
+                },
+                isHighlight = com.cardesktop.service.VehicleService.vehicleStatus.value.isACOn,
                 dim = dim
             )
 
@@ -239,6 +245,8 @@ private fun GradientSeparator(dim: ResponsiveDimensions) {
 
 @Composable
 private fun NeonTemperatureControl(dim: ResponsiveDimensions) {
+    val vehicleStatus by com.cardesktop.service.VehicleService.vehicleStatus.collectAsState()
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(dim.spaceXS),
@@ -246,14 +254,22 @@ private fun NeonTemperatureControl(dim: ResponsiveDimensions) {
             .shadow(
                 elevation = (6 * dim.scaleFactor).dp.coerceAtLeast(3.dp),
                 shape = RoundedCornerShape(dim.radiusL),
-                ambientColor = CyberpunkColors.NeonBlue.copy(alpha = 0.4f),
+                ambientColor = if (vehicleStatus.isACOn) CyberpunkColors.NeonBlue.copy(alpha = 0.6f) else CyberpunkColors.NeonBlue.copy(alpha = 0.4f),
                 spotColor = CyberpunkColors.NeonBlue
             )
             .clip(RoundedCornerShape(dim.radiusL))
-            .background(Color(0x80000000))
+            .background(
+                if (vehicleStatus.isACOn) 
+                    CyberpunkColors.NeonBlue.copy(alpha = 0.15f) 
+                else 
+                    Color(0x80000000)
+            )
             .border(
-                width = (1 * dim.scaleFactor).dp.coerceAtLeast(0.5.dp),
-                color = CyberpunkColors.NeonBlue.copy(alpha = 0.6f),
+                width = if (vehicleStatus.isACOn) (2 * dim.scaleFactor).dp.coerceAtLeast(1.dp) else (1 * dim.scaleFactor).dp.coerceAtLeast(0.5.dp),
+                color = if (vehicleStatus.isACOn) 
+                    CyberpunkColors.NeonBlue.copy(alpha = 0.9f) 
+                else 
+                    CyberpunkColors.NeonBlue.copy(alpha = 0.6f),
                 shape = RoundedCornerShape(dim.radiusL)
             )
             .padding(horizontal = dim.spaceM, vertical = dim.spaceS)
@@ -263,7 +279,9 @@ private fun NeonTemperatureControl(dim: ResponsiveDimensions) {
                 .size(dim.dockTempButtonSize)
                 .clip(CircleShape)
                 .background(CyberpunkColors.NeonBlue.copy(alpha = 0.2f))
-                .clickable(onClick = { /* 降温 */ }),
+                .clickable(onClick = { 
+                    com.cardesktop.service.VehicleService.updateACTemperature(-1)
+                }),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -274,19 +292,34 @@ private fun NeonTemperatureControl(dim: ResponsiveDimensions) {
             )
         }
 
-        Text(
-            text = "20°C",
-            color = CyberpunkColors.NeonBlue,
-            fontSize = dim.dockTempTextSize.sp,
-            fontWeight = FontWeight.Medium
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "${vehicleStatus.acTemp}°C",
+                color = if (vehicleStatus.isACOn) 
+                    CyberpunkColors.NeonBlue 
+                else 
+                    Color.White.copy(alpha = 0.8f),
+                fontSize = dim.dockTempTextSize.sp,
+                fontWeight = FontWeight.Medium
+            )
+            
+            if (vehicleStatus.isACOn) {
+                Text(
+                    text = "运行中",
+                    color = CyberpunkColors.NeonGreen.copy(alpha = 0.8f),
+                    fontSize = (10 * dim.scaleFactor).coerceIn(8f, 14f).sp
+                )
+            }
+        }
 
         Box(
             modifier = Modifier
                 .size(dim.dockTempButtonSize)
                 .clip(CircleShape)
                 .background(CyberpunkColors.NeonBlue.copy(alpha = 0.2f))
-                .clickable(onClick = { /* 升温 */ }),
+                .clickable(onClick = { 
+                    com.cardesktop.service.VehicleService.updateACTemperature(1)
+                }),
             contentAlignment = Alignment.Center
         ) {
             Text(
