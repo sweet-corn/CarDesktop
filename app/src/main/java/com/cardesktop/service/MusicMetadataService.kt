@@ -51,22 +51,20 @@ object MusicMetadataService {
                 val filter = IntentFilter().apply {
                     addAction("com.android.music.metachanged")
                     addAction("com.htc.music.metachanged")
-                   .addAction("fm.last.android.metachanged")
+                    addAction("fm.last.android.metachanged")
                     addAction("com.sec.android.app.music.metachanged")
                     addAction("com.nullsoft.winamp.metachanged")
                     addAction("com.amazon.mp3.metachanged")
                     addAction("com.miui.player.metachanged")
                     addAction("com.real.IMP.metachanged")
-                    actions = listOf(
-                        "android.intent.action.MEDIA_BUTTON",
-                        "com.android.music.playstatechanged",
-                        "com.android.music.playbackcomplete",
-                        "com.android.music.queuechanged",
-                        "net.easyfox.musixmatch.metachanged",
-                        "com.maxmpz.audioplayer.METADATA_CHANGED",
-                        "com.spotify.music.metadatachanged",
-                        "com.spotify.music.playbackstatechanged"
-                    ).forEach { addAction(it) }
+                    addAction("android.intent.action.MEDIA_BUTTON")
+                    addAction("com.android.music.playstatechanged")
+                    addAction("com.android.music.playbackcomplete")
+                    addAction("com.android.music.queuechanged")
+                    addAction("net.easyfox.musixmatch.metachanged")
+                    addAction("com.maxmpz.audioplayer.METADATA_CHANGED")
+                    addAction("com.spotify.music.metadatachanged")
+                    addAction("com.spotify.music.playbackstatechanged")
                 }
                 
                 ContextCompat.registerReceiver(ctx, metadataReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
