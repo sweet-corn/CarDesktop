@@ -315,10 +315,13 @@ private fun NavigationAppDialog(
     onAppSelected: (String) -> Unit
 ) {
     val context = LocalContext.current
-    val navApps = listOf(
-        NavAppInfo("高德地图", "com.autonavi.minimap", ""),
-        NavAppInfo("百度地图", "com.baidu.BaiduMap", ""),
-        NavAppInfo("腾讯地图", "com.tencent.map", "")
+    
+    val allNavApps = listOf(
+        NavAppInfo("高德地图", "com.autonavi.minimap", "🗺️"),
+        NavAppInfo("百度地图", "com.baidu.BaiduMap", "🧭"),
+        NavAppInfo("腾讯地图", "com.tencent.map", "📍"),
+        NavAppInfo("谷歌地图", "com.google.android.apps.maps", "🌍"),
+        NavAppInfo("搜狗地图", "com.sogou.map.android.maps", "🔍")
     )
 
     androidx.compose.ui.window.Dialog(
@@ -349,16 +352,27 @@ private fun NavigationAppDialog(
                 .padding(dim.spaceXL)
         ) {
             Text(
-                text = " 选择导航应用",
+                text = "🗺️ 选择导航应用",
                 color = CyberpunkColors.NeonCyan,
                 fontSize = dim.dialogTitleSize.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
 
+            Spacer(modifier = Modifier.height(dim.spaceL))
+
+            Text(
+                text = "长按已安装的应用可设为默认",
+                color = CyberpunkColors.TextHint,
+                fontSize = (12 * dim.scaleFactor).coerceIn(9f, 16f).sp,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+
             Spacer(modifier = Modifier.height(dim.spaceXL))
 
-            navApps.forEach { app ->
+            var hasInstalledApp by remember { mutableStateOf(false) }
+
+            allNavApps.forEach { app ->
                 val isInstalled = try {
                     context.packageManager.getPackageInfo(app.packageName, 0)
                     true
@@ -367,16 +381,35 @@ private fun NavigationAppDialog(
                 }
 
                 if (isInstalled) {
-                    NavAppOptionItem(
-                        name = app.name,
-                        packageName = app.packageName,
-                        emoji = app.emoji,
-                        isSelected = currentApp == app.packageName,
-                        dim = dim,
-                        onSelected = { onAppSelected(app.packageName) }
-                    )
-                    Spacer(modifier = Modifier.height(dim.spaceM))
+                    hasInstalledApp = true
                 }
+
+                NavAppOptionItem(
+                    name = app.name,
+                    packageName = app.packageName,
+                    emoji = app.emoji,
+                    isSelected = currentApp == app.packageName,
+                    isInstalled = isInstalled,
+                    dim = dim,
+                    onSelected = { 
+                        if (isInstalled) onAppSelected(app.packageName) 
+                    }
+                )
+                
+                if (allNavApps.indexOf(app) < allNavApps.size - 1) {
+                    Spacer(modifier = Modifier.height(dim.spaceS))
+                }
+            }
+
+            if (!hasInstalledApp) {
+                Spacer(modifier = Modifier.height(dim.spaceM))
+                Text(
+                    text = "⚠️ 未检测到导航应用\n请先安装高德/百度/腾讯地图",
+                    color = CyberpunkColors.NeonYellow,
+                    fontSize = dim.fontCaption.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
             }
 
             Spacer(modifier = Modifier.height(dim.spaceXL))
@@ -402,6 +435,7 @@ private fun NavAppOptionItem(
     packageName: String,
     emoji: String,
     isSelected: Boolean,
+    isInstalled: Boolean = true,
     dim: ResponsiveDimensions,
     onSelected: () -> Unit
 ) {
@@ -410,16 +444,21 @@ private fun NavAppOptionItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(dim.radiusM))
             .background(
-                if (isSelected) CyberpunkColors.NeonCyan.copy(alpha = 0.2f)
+                if (!isInstalled) Color(0x15000000)
+                else if (isSelected) CyberpunkColors.NeonCyan.copy(alpha = 0.2f)
                 else Color(0x30FFFFFF)
             )
             .border(
                 width = (1 * dim.scaleFactor).dp.coerceAtLeast(0.5.dp),
-                color = if (isSelected) CyberpunkColors.NeonCyan else Color.Transparent,
+                color = when {
+                    !isInstalled -> CyberpunkColors.TextHint.copy(alpha = 0.3f)
+                    isSelected -> CyberpunkColors.NeonCyan
+                    else -> Color.Transparent
+                },
                 shape = RoundedCornerShape(dim.radiusM)
             )
-            .clickable(onClick = onSelected)
-            .padding(dim.spaceM),
+            .clickable(enabled = isInstalled, onClick = onSelected)
+            .padding(horizontal = dim.spaceL, vertical = dim.spaceM),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -428,15 +467,43 @@ private fun NavAppOptionItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(text = emoji, fontSize = (24 * dim.scaleFactor).coerceIn(18f, 36f).sp)
-            Text(
-                text = name,
-                color = if (isSelected) CyberpunkColors.NeonCyan else Color.White,
-                fontSize = dim.dialogItemTextSize.sp,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-            )
+
+            Column {
+                Text(
+                    text = name,
+                    color = if (!isInstalled) 
+                        CyberpunkColors.TextHint.copy(alpha = 0.5f)
+                    else if (isSelected) 
+                        CyberpunkColors.NeonCyan 
+                    else 
+                        Color.White,
+                    fontSize = dim.dialogItemTextSize.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                )
+
+                if (!isInstalled) {
+                    Text(
+                        text = "未安装",
+                        color = CyberpunkColors.TextHint.copy(alpha = 0.6f),
+                        fontSize = (11 * dim.scaleFactor).coerceIn(9f, 14f).sp
+                    )
+                }
+            }
         }
-        if (isSelected) {
-            Text(text = "✓", color = CyberpunkColors.NeonCyan, fontSize = dim.dialogItemTextSize.sp)
+
+        if (isSelected && isInstalled) {
+            Text(
+                text = "✓ 当前默认",
+                color = CyberpunkColors.NeonCyan,
+                fontSize = (12 * dim.scaleFactor).coerceIn(9f, 16f).sp,
+                fontWeight = FontWeight.Medium
+            )
+        } else if (!isInstalled) {
+            Text(
+                text = "—",
+                color = CyberpunkColors.TextHint.copy(alpha = 0.3f),
+                fontSize = (12 * dim.scaleFactor).coerceIn(9f, 16f).sp
+            )
         }
     }
 }
@@ -462,10 +529,26 @@ private fun NavigationCardContent(dim: ResponsiveDimensions) {
 @Composable
 private fun MediaPlayerCardContent(dim: ResponsiveDimensions) {
     val context = LocalContext.current
-
-    var isPlaying by remember { mutableStateOf(false) }
-    var currentSong by remember { mutableStateOf("等待播放") }
+    val haptic = LocalHapticFeedback.current
+    
     var showMusicAppSelector by remember { mutableStateOf(false) }
+    
+    val prefs = remember { context.getSharedPreferences("car_desktop_prefs", Context.MODE_PRIVATE) }
+    var selectedMusicApp by remember { 
+        mutableStateOf(prefs.getString("default_music_app", "") ?: "") 
+    }
+
+    val musicMetadata by com.cardesktop.service.MusicMetadataService.metadata.collectAsState()
+    
+    var isPlaying by remember { mutableStateOf(musicMetadata.isPlaying) }
+    var currentSong by remember { mutableStateOf(musicMetadata.title) }
+    var currentArtist by remember { mutableStateOf(musicMetadata.artist) }
+
+    LaunchedEffect(musicMetadata) {
+        isPlaying = musicMetadata.isPlaying
+        currentSong = if (musicMetadata.title.isNotEmpty()) musicMetadata.title else "等待播放"
+        currentArtist = musicMetadata.artist
+    }
 
     Box(
         modifier = Modifier
@@ -490,7 +573,15 @@ private fun MediaPlayerCardContent(dim: ResponsiveDimensions) {
                         color = CyberpunkColors.NeonPink.copy(alpha = 0.6f),
                         shape = RoundedCornerShape(dim.radiusM)
                     )
-                    .clickable(onClick = { showMusicAppSelector = true }),
+                    .combinedClickable(
+                        onClick = { 
+                            ensureMusicAppOpen(context, selectedMusicApp)
+                        },
+                        onLongClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            showMusicAppSelector = true
+                        }
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Text(text = "🎵", fontSize = dim.musicIconEmoji.sp)
@@ -504,7 +595,7 @@ private fun MediaPlayerCardContent(dim: ResponsiveDimensions) {
                 horizontalAlignment = Alignment.Start
             ) {
                 Text(
-                    text = currentSong,
+                    text = if (currentSong.isNotEmpty() && currentSong != "等待播放") currentSong else "点击🎵打开音乐",
                     color = Color.White,
                     fontSize = dim.musicSongNameSize.sp,
                     fontWeight = FontWeight.Medium,
@@ -518,15 +609,22 @@ private fun MediaPlayerCardContent(dim: ResponsiveDimensions) {
 
                     Spacer(modifier = Modifier.width((8 * dim.scaleFactor).dp))
 
-                    if (isPlaying) {
+                    if (isPlaying && currentSong.isNotEmpty()) {
                         Text(
-                            text = "~ 正在播放 ~",
+                            text = if (currentArtist.isNotEmpty()) currentArtist else "~ 正在播放 ~",
                             color = CyberpunkColors.NeonPink.copy(alpha = 0.8f),
+                            fontSize = dim.musicStatusSize.sp,
+                            maxLines = 1
+                        )
+                    } else if (selectedMusicApp.isNotEmpty()) {
+                        Text(
+                            text = "长按🎵切换应用",
+                            color = CyberpunkColors.TextHint,
                             fontSize = dim.musicStatusSize.sp
                         )
                     } else {
                         Text(
-                            text = "点击▶播放",
+                            text = "长按🎵选择应用",
                             color = CyberpunkColors.TextHint,
                             fontSize = dim.musicStatusSize.sp
                         )
@@ -553,12 +651,19 @@ private fun MediaPlayerCardContent(dim: ResponsiveDimensions) {
                     onClick = {
                         if (!isPlaying) {
                             MusicController.playPause()
+                            
+                            Thread {
+                                Thread.sleep(300)
+                                MusicMetadataService.refreshMetadata()
+                            }.start()
+                            
                             isPlaying = true
-                            currentSong = "正在播放..."
+                            if (currentSong == "等待播放" || currentSong.isEmpty()) {
+                                currentSong = "正在播放..."
+                            }
                         } else {
                             MusicController.playPause()
                             isPlaying = false
-                            currentSong = "已暂停"
                         }
                     },
                     size = dim.musicControlButtonMain,
@@ -569,6 +674,11 @@ private fun MediaPlayerCardContent(dim: ResponsiveDimensions) {
                     icon = "⏭️",
                     onClick = {
                         MusicController.next()
+                        
+                        Thread {
+                            Thread.sleep(300)
+                            MusicMetadataService.refreshMetadata()
+                        }.start()
                     },
                     size = dim.musicControlButtonSmall
                 )
@@ -579,13 +689,45 @@ private fun MediaPlayerCardContent(dim: ResponsiveDimensions) {
     if (showMusicAppSelector) {
         SimpleMusicAppDialog(
             dim = dim,
+            currentApp = selectedMusicApp,
             onDismiss = { showMusicAppSelector = false },
             onAppSelected = { packageName ->
-                MusicController.openMusicApp(context, packageName)
+                prefs.edit().putString("default_music_app", packageName).apply()
+                selectedMusicApp = packageName
                 showMusicAppSelector = false
+                
+                ensureMusicAppOpen(context, packageName)
+                
+                Thread {
+                    Thread.sleep(800)
+                    MusicController.playPause()
+                    
+                    Thread.sleep(500)
+                    MusicMetadataService.refreshMetadata()
+                    
+                    isPlaying = true
+                    currentSong = "正在播放..."
+                }.start()
             }
         )
     }
+}
+
+private fun ensureMusicAppOpen(context: Context, preferredPackage: String) {
+    if (preferredPackage.isNotEmpty()) {
+        try {
+            val intent = context.packageManager.getLaunchIntentForPackage(preferredPackage)
+            if (intent != null) {
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                context.startActivity(intent)
+                return
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    
+    MusicController.openMusicApp(context)
 }
 
 @Composable
@@ -728,9 +870,20 @@ private fun NeonControlButton(
 @Composable
 private fun SimpleMusicAppDialog(
     dim: ResponsiveDimensions,
+    currentApp: String = "",
     onDismiss: () -> Unit,
     onAppSelected: (String) -> Unit
 ) {
+    val context = LocalContext.current
+    
+    val allMusicApps = listOf(
+        MusicAppInfo("QQ音乐", "com.tencent.qqmusic", "🎵"),
+        MusicAppInfo("网易云音乐", "com.netease.cloudmusic", "🎼"),
+        MusicAppInfo("酷狗音乐", "com.kugou.android", "🎶"),
+        MusicAppInfo("酷我音乐", "cn.kuwo.player", "🎤"),
+        MusicAppInfo("咪咕音乐", "cmccwm.mobilemusic", "📻")
+    )
+
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(
@@ -769,25 +922,58 @@ private fun SimpleMusicAppDialog(
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
 
+            Spacer(modifier = Modifier.height(dim.spaceL))
+
+            Text(
+                text = "选择后将设为默认播放器",
+                color = CyberpunkColors.TextHint,
+                fontSize = (12 * dim.scaleFactor).coerceIn(9f, 16f).sp,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+
             Spacer(modifier = Modifier.height(dim.spaceXL))
 
-            MusicAppOptionItem(
-                name = "QQ音乐",
-                packageName = "com.tencent.qqmusic",
-                emoji = "🎵",
-                dim = dim,
-                onSelected = onAppSelected
-            )
+            var hasInstalledApp by remember { mutableStateOf(false) }
 
-            Spacer(modifier = Modifier.height(dim.spaceM))
+            allMusicApps.forEach { app ->
+                val isInstalled = try {
+                    context.packageManager.getPackageInfo(app.packageName, 0)
+                    true
+                } catch (e: Exception) {
+                    false
+                }
 
-            MusicAppOptionItem(
-                name = "网易云音乐",
-                packageName = "com.netease.cloudmusic",
-                emoji = "🎼",
-                dim = dim,
-                onSelected = onAppSelected
-            )
+                if (isInstalled) {
+                    hasInstalledApp = true
+                }
+
+                MusicAppOptionItem(
+                    name = app.name,
+                    packageName = app.packageName,
+                    emoji = app.emoji,
+                    isSelected = currentApp == app.packageName,
+                    isInstalled = isInstalled,
+                    dim = dim,
+                    onSelected = { 
+                        if (isInstalled) onAppSelected(app.packageName) 
+                    }
+                )
+
+                if (allMusicApps.indexOf(app) < allMusicApps.size - 1) {
+                    Spacer(modifier = Modifier.height(dim.spaceS))
+                }
+            }
+
+            if (!hasInstalledApp) {
+                Spacer(modifier = Modifier.height(dim.spaceM))
+                Text(
+                    text = "⚠️ 未检测到音乐应用\n请先安装QQ音乐/网易云音乐",
+                    color = CyberpunkColors.NeonYellow,
+                    fontSize = dim.fontCaption.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+            }
 
             Spacer(modifier = Modifier.height(dim.spaceXL))
 
@@ -804,11 +990,15 @@ private fun SimpleMusicAppDialog(
     }
 }
 
+data class MusicAppInfo(val name: String, val packageName: String, val emoji: String)
+
 @Composable
 private fun MusicAppOptionItem(
     name: String,
     packageName: String,
     emoji: String,
+    isSelected: Boolean = false,
+    isInstalled: Boolean = true,
     dim: ResponsiveDimensions,
     onSelected: (String) -> Unit
 ) {
@@ -816,28 +1006,68 @@ private fun MusicAppOptionItem(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(dim.radiusM))
-            .background(CyberpunkColors.BackgroundCard)
-            .clickable(onClick = { onSelected(packageName) })
+            .background(
+                if (!isInstalled) Color(0x15000000)
+                else if (isSelected) CyberpunkColors.NeonPink.copy(alpha = 0.2f)
+                else Color(0x30FFFFFF)
+            )
+            .border(
+                width = (1 * dim.scaleFactor).dp.coerceAtLeast(0.5.dp),
+                color = when {
+                    !isInstalled -> CyberpunkColors.TextHint.copy(alpha = 0.3f)
+                    isSelected -> CyberpunkColors.NeonPink
+                    else -> Color.Transparent
+                },
+                shape = RoundedCornerShape(dim.radiusM)
+            )
+            .clickable(enabled = isInstalled, onClick = { onSelected(packageName) })
             .padding(horizontal = dim.spaceL, vertical = dim.spaceM),
         horizontalArrangement = Arrangement.spacedBy(dim.spaceM),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(text = emoji, fontSize = dim.dialogAppIconSize.sp)
 
-        Text(
-            text = name,
-            color = Color.White,
-            fontSize = dim.dialogAppNameSize.sp,
-            fontWeight = FontWeight.Medium
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = name,
+                color = if (!isInstalled) 
+                    CyberpunkColors.TextHint.copy(alpha = 0.5f)
+                else if (isSelected) 
+                    CyberpunkColors.NeonPink 
+                else 
+                    Color.White,
+                fontSize = dim.dialogAppNameSize.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+            )
 
-        Spacer(modifier = Modifier.weight(1f))
+            if (!isInstalled) {
+                Text(
+                    text = "未安装",
+                    color = CyberpunkColors.TextHint.copy(alpha = 0.6f),
+                    fontSize = (11 * dim.scaleFactor).coerceIn(9f, 14f).sp
+                )
+            } else if (isSelected) {
+                Text(
+                    text = "✓ 当前默认",
+                    color = CyberpunkColors.NeonPink.copy(alpha = 0.8f),
+                    fontSize = (11 * dim.scaleFactor).coerceIn(9f, 14f).sp
+                )
+            }
+        }
 
-        Text(
-            text = "▶",
-            color = CyberpunkColors.NeonPink,
-            fontSize = (20 * dim.scaleFactor).coerceIn(14f, 30f).sp
-        )
+        if (isInstalled && !isSelected) {
+            Text(
+                text = "▶",
+                color = CyberpunkColors.NeonPink,
+                fontSize = (20 * dim.scaleFactor).coerceIn(14f, 30f).sp
+            )
+        } else if (!isInstalled) {
+            Text(
+                text = "—",
+                color = CyberpunkColors.TextHint.copy(alpha = 0.3f),
+                fontSize = (20 * dim.scaleFactor).coerceIn(14f, 30f).sp
+            )
+        }
     }
 }
 
