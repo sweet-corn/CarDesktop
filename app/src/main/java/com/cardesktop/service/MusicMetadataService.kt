@@ -4,8 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.media.session.MediaSessionManager
-import android.media.session.PlaybackState
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,8 +25,6 @@ object MusicMetadataService {
     val metadata: StateFlow<MusicMetadata> = _metadata.asStateFlow()
 
     private var context: Context? = null
-    private var mediaSessionManager: MediaSessionManager? = null
-    private var activeSessionCallback: Any? = null
 
     private val metadataReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -40,7 +36,6 @@ object MusicMetadataService {
         this.context = context.applicationContext
         
         registerReceivers()
-        startMonitoringMediaSessions()
         
         tryGetInitialMetadata()
     }
@@ -74,62 +69,6 @@ object MusicMetadataService {
         }
     }
 
-    private fun startMonitoringMediaSessions() {
-        try {
-            mediaSessionManager = context?.getSystemService(Context.MEDIA_SESSION_SERVICE) as? MediaSessionManager
-            
-            mediaSessionManager?.getActiveSessions(null)?.forEach { session ->
-                session.controller?.registerCallback(
-                    object : MediaSessionManager.Callback() {},
-                    android.os.Handler(android.os.Looper.getMainLooper())
-                )
-            }
-            
-            monitorActiveSessions()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun monitorActiveSessions() {
-        Thread {
-            while (true) {
-                try {
-                    Thread.sleep(2000)
-                    
-                    val sessions = mediaSessionManager?.getActiveSessions(null)
-                    if (!sessions.isNullOrEmpty()) {
-                        val latestSession = sessions.firstOrNull { 
-                            it.isActive && it.playbackState != null 
-                        } ?: return@forEach
-                        
-                        val controller = latestSession.controller
-                        val metadata = controller.metadata
-                        
-                        if (metadata != null) {
-                            val title = metadata.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: ""
-                            val artist = metadata.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST) ?: ""
-                            val album = metadata.getString(android.media.MediaMetadata.METADATA_KEY_ALBUM) ?: ""
-                            
-                            if (title.isNotEmpty()) {
-                                _metadata.value = MusicMetadata(
-                                    title = title,
-                                    artist = artist,
-                                    album = album,
-                                    isPlaying = latestSession.playbackState?.state == PlaybackState.STATE_PLAYING,
-                                    duration = metadata.getLong(android.media.MediaMetadata.METADATA_KEY_DURATION),
-                                    packageName = latestSession.packageName ?: ""
-                                )
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        }.start()
-    }
-
     private fun tryGetInitialMetadata() {
         try {
             context?.contentResolver?.query(
@@ -158,10 +97,26 @@ object MusicMetadataService {
 
     private fun updateMetadataFromIntent(intent: Intent) {
         try {
-            val track = intent.getStringExtra("track") ?: ""
-            val artist = intent.getStringExtra("artist") ?: ""
-            val album = intent.getStringExtra("album") ?: ""
-            val isPlaying = intent.getBooleanExtra("playing", false)
+            var track = intent.getStringExtra("track") ?: ""
+            var artist = intent.getStringExtra("artist") ?: ""
+            var album = intent.getStringExtra("album") ?: ""
+            
+            if (track.isEmpty()) {
+                track = getStringExtraSafe(intent, "title") 
+                    ?: getStringExtraSafe(intent, "song") 
+                    ?: ""
+            }
+            
+            val isPlaying = when (intent.action) {
+                "com.android.music.playstatechanged" -> {
+                    intent.getBooleanExtra("playing", false)
+                }
+                "com.android.music.metachanged",
+                "com.htc.music.metachanged",
+                "fm.last.android.metachanged",
+                "com.sec.android.app.music.metachanged" -> true
+                else -> _metadata.value.isPlaying
+            }
             
             if (track.isNotEmpty()) {
                 _metadata.value = MusicMetadata(
@@ -171,20 +126,6 @@ object MusicMetadataService {
                     isPlaying = isPlaying,
                     packageName = intent.`package` ?: ""
                 )
-            } else {
-                val fallbackTitle = getStringExtraSafe(intent, "title") 
-                    ?: getStringExtraSafe(intent, "song") 
-                    ?: ""
-                
-                if (fallbackTitle.isNotEmpty()) {
-                    _metadata.value = MusicMetadata(
-                        title = fallbackTitle,
-                        artist = artist,
-                        album = album,
-                        isPlaying = isPlaying,
-                        packageName = intent.`package` ?: ""
-                    )
-                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -201,32 +142,19 @@ object MusicMetadataService {
 
     fun refreshMetadata(): Boolean {
         return try {
-            val sessions = mediaSessionManager?.getActiveSessions(null)
-            if (!sessions.isNullOrEmpty()) {
-                val session = sessions.find { it.isActive } ?: sessions[0]
-                val controller = session.controller
-                val meta = controller.metadata
-                
-                if (meta != null) {
-                    _metadata.value = MusicMetadata(
-                        title = meta.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: "",
-                        artist = meta.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST) ?: "",
-                        album = meta.getString(android.media.MediaMetadata.METADATA_KEY_ALBUM) ?: "",
-                        isPlaying = session.playbackState?.state == PlaybackState.STATE_PLAYING,
-                        duration = meta.getLong(android.media.MediaMetadata.METADATA_KEY_DURATION),
-                        packageName = session.packageName ?: ""
-                    )
-                    true
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
+            tryGetInitialMetadata()
+            true
         } catch (e: Exception) {
             e.printStackTrace()
             false
         }
+    }
+
+    fun updatePlaybackState(isPlaying: Boolean, title: String = "") {
+        _metadata.value = _metadata.value.copy(
+            isPlaying = isPlaying,
+            title = if (title.isNotEmpty()) title else _metadata.value.title
+        )
     }
 
     fun stop() {
