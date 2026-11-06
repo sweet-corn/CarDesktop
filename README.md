@@ -1,178 +1,34 @@
-# 🚗 CarDesktop - 通用安卓车机/平板桌面
+# CarDesk 车机桌面（基础版）
 
-一个使用 **Kotlin + Jetpack Compose** 构建的通用 Android Launcher，车机风格设计，平板也能用。
+依据用户提供 APK 的布局结构独立实现，不包含原应用代码、壁纸、图标、品牌或车辆控制接口。项目与原 APK 包名不同，可并存安装。
 
-> 不依赖汽车硬件，任何 Android 设备都可以设置为默认桌面。
+## 已实现
 
----
+- 原生 Android Activity；参考壁纸背景、左上大时钟、底部半透明卡片布局。
+- 全部应用列表、打开已安装应用；导航快捷尝试常见地图包名，找不到时打开应用列表。
+- 本地图片壁纸选择、持久化读取权限；时钟开关和系统设置入口。
+- 使用普通 `LAUNCHER` 入口，额外声明原 APK 出现的非标准 `HOME_ONLY` 类别；**不声明系统 HOME、不改默认桌面、不请求特权或自动启动权限**。HOME_ONLY 的实际行为依赖车机，不能保证回到桌面或绕过任何厂商限制。
+- 不接管系统导航栏，不实现车控、车速、影像、方控、媒体控制、开机自启、原厂状态栏及真实导航小组件；界面仅提供可用的应用入口，不模拟这些能力。
 
-## 📱 界面预览
+## 构建
 
-```
-┌──────────────────────────────────────────────────┐
-│  1月10日 星期四                    📶 📡 🔋 16:31  │
-├────────────┬─────────────────────┬───────────────┤
-│            │   🗺️  🎵  📞  📷   │               │
-│   16:31    │   ⚙️  📁  🔍  🎮   │    ☀️ 26°    │
-│            │   📺  📖  💬  🌤️   │   北京 · 晴   │
-│  4月10日   │   🎯  📊  🎨  🔧   │               │
-│   星期四   │                     │               │
-├────────────┴─────────────────────┴───────────────┤
-│     🗺️ 导航    🎵 音乐    📞 电话    📷 相机      │
-├──────────────────────────────────────────────────┤
-│  📱全部应用   [应用1] [应用2] [应用3]    ⚙️ 设置   │
-└──────────────────────────────────────────────────┘
+使用 Android Studio 打开本目录。需要 JDK 17、Android SDK Platform 34 和 Gradle 8.7；配置 `ANDROID_HOME` 或 Android Studio 的 SDK 路径后执行：
+
+```powershell
+.\gradlew.bat :app:assembleDebug
 ```
 
----
+输出 `app/build/outputs/apk/debug/app-debug.apk`。Android Gradle Plugin 从 Google Maven 下载，需要配置网络；debug APK 使用本机调试签名，不覆盖原 APK。
 
-## ✨ 功能特性
+本开发环境未发现 Android SDK/JDK 17，也未连接车机，**尚未构建或真机验证**。安装与实际兼容性需要在目标车机测试。Android 11+ 的应用可见性及车机定制可能限制可查询、启动的应用。
 
-### 已实现
+## 安全测试
 
-- [x] **Launcher 模式** — 注册为系统 HOME 桌面
-- [x] **横屏全屏** — 强制横屏 + 沉浸式全屏
-- [x] **应用抽屉** — 显示所有已安装应用，支持搜索
-- [x] **桌面快捷方式** — 主屏常用应用快捷入口
-- [x] **Dock 栏** — 底部固定应用 + 全部应用/设置入口
-- [x] **时钟 Widget** — 实时时间 + 日期显示
-- [x] **天气 Widget** — 天气信息展示（占位）
-- [x] **快捷操作栏** — 导航/音乐/电话/相机快速启动
-- [x] **应用监听** — 自动检测安装/卸载/更新
-- [x] **开机自启** — BootReceiver 支持
-- [x] **深色主题** — 车机风格暗色 UI
-- [x] **大触摸目标** — 符合驾驶安全规范（64dp+）
+只在停车状态测试；保留原厂桌面及返回入口，不卸载原厂应用、不设置默认桌面。使用 `adb install -r app-debug.apk` 手动安装，启动：
 
-### 待开发
-
-- [ ] 天气 API 接入（高德/和风天气）
-- [ ] OBD 车辆数据读取（可选）
-- [ ] 音乐播放器控件
-- [ ] 主题切换（多色系）
-- [ ] 壁纸自定义
-- [ ] 小部件支持（Android AppWidget）
-- [ ] 语音控制
-- [ ] 夜间/日间模式自动切换
-
----
-
-## 🏗️ 项目结构
-
-```
-app/src/main/java/com/cardesktop/
-├── DesktopApp.kt                 # Application 入口
-├── data/
-│   ├── model/
-│   │   └── Models.kt             # 数据模型（AppInfo, WeatherInfo, Config）
-│   └── repository/
-│       └── AppRepository.kt      # 已安装应用数据源
-├── ui/
-│   ├── theme/
-│   │   ├── Color.kt              # 车机风格色彩定义
-│   │   └── Dimens.kt             # 尺寸常量（大触摸目标）
-│   ├── screen/
-│   │   ├── MainActivity.kt       # 主桌面入口（全屏沉浸）
-│   │   ├── MainScreen.kt         # 主桌面 UI
-│   │   ├── MainViewModel.kt      # 主桌面逻辑
-│   │   ├── AppDrawerActivity.kt  # 应用抽屉
-│   │   └── SettingsActivity.kt   # 设置页面
-│   └── widget/
-│       ├── AppIcon.kt            # 应用图标组件
-│       ├── Widgets.kt            # 时钟/天气/快捷卡片
-│       └── DockBar.kt            # 底部 Dock 栏
-├── receiver/
-│   ├── BootReceiver.kt           # 开机广播
-│   └── AppChangeReceiver.kt      # 应用变更监听
-└── util/                         # 工具类（待添加）
+```powershell
+adb shell am start -n com.cardesk.home/.MainActivity
+adb logcat -s AndroidRuntime ActivityTaskManager
 ```
 
----
-
-## 🛠️ 技术栈
-
-| 技术            | 版本        | 用途     |
-| --------------- | ----------- | -------- |
-| Kotlin          | 1.9.22      | 编程语言 |
-| Jetpack Compose | BOM 2024.01 | UI 框架  |
-| Material 3      | -           | 设计系统 |
-| ViewModel       | 2.7.0       | 状态管理 |
-| Coroutines      | -           | 异步任务 |
-| Navigation      | 2.7.6       | 页面导航 |
-
----
-
-## 🚀 快速开始
-
-### 环境要求
-
-- Android Studio Hedgehog (2023.1.1) 或更高
-- JDK 17
-- Android SDK 34
-- 最低支持 Android 8.0 (API 26)
-
-### 构建运行
-
-```bash
-# 克隆项目
-git clone <repo-url>
-cd CarDesktop
-
-# 用 Android Studio 打开，或命令行构建
-./gradlew assembleDebug
-
-# 安装到设备
-adb install app/build/outputs/apk/debug/app-debug.apk
-```
-
-### 设置为默认桌面
-
-1. 安装 APK 后按 Home 键
-2. 系统弹出桌面选择器 → 选择 **CarDesktop**
-3. 或在 **设置 → 应用 → 默认应用 → 主屏幕应用** 中设置
-
-### 模拟器测试
-
-建议创建 **10.1 寸平板模拟器** (1920×1200, 横屏)：
-
-1. Android Studio → Device Manager → Create Device
-2. 选择 Tablet → Pixel Tablet
-3. 系统镜像选择 API 34+
-4. 启动后横屏即可看到效果
-
----
-
-## 🎨 设计规范
-
-### 色彩
-
-- **主色**：`#00E5FF` 科技蓝
-- **强调**：`#FF6D00` 活力橙
-- **背景**：`#0A0E14` 深邃黑蓝
-- **卡片**：`#141B26` 半透明深色
-
-### 字号（驾驶安全）
-
-- 标题：20sp
-- 正文：16sp（最小 14sp）
-- 触摸目标：最小 64dp × 64dp
-
-### 安全规范
-
-- 行驶中禁止复杂交互
-- 大按钮、大字体
-- 深色主题（夜间驾驶友好）
-- 限制每屏信息密度
-
----
-
-## 📄 License
-
-MIT License — 自由使用和修改。
-
----
-
-## 🙏 参考
-
-- [Android for Cars - Google](https://developer.android.google.cn/training/cars)
-- [AOSP 驾驶分心指南](https://source.android.google.cn/devices/automotive/driver_distraction/guidelines)
-- [Jetpack Compose 官方文档](https://developer.android.google.cn/jetpack/compose)
+请提供车型、DiLink 与 Android 版本、车机分辨率、原桌面截图及启动日志，才能进一步确认兼容性与还原实际布局。

@@ -1,94 +1,22 @@
-<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <!-- 网络 -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <!-- 蓝牙 -->
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <!-- 定位（天气功能） -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <!-- 开机自启 -->
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- 查询已安装应用 -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
-        android:maxSdkVersion="30" />
-
- <!-- 显示在其他应用上层（悬浮窗/覆盖层） -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-
-    <!-- 前台服务（保持Dock栏常驻） -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-
-    <!-- 声明为平板/车机应用，横屏优先 -->
-    <uses-feature
-        android:name="android.hardware.screen.landscape"
-        android:required="false" />
-    <uses-feature
-        android:name="android.hardware.touchscreen"
-        android:required="false" />
-
-    <application
-        android:name=".DesktopApp"
-        android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.CarDesktop">
-
-        <!-- 主桌面 Activity -->
-        <activity
-            android:name=".ui.screen.MainActivity"
-            android:exported="true"
-            android:launchMode="singleTask"
-            android:screenOrientation="landscape"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
-            android:windowSoftInputMode="adjustPan">
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+    <application android:allowBackup="false" android:label="CarDesk" android:theme="@android:style/Theme.Material.NoActionBar" android:usesCleartextTraffic="false">
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask" android:configChanges="orientation|screenLayout|screenSize|smallestScreenSize|uiMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-                <!-- <category android:name="android.intent.category.HOME" /> -->
+            </intent-filter>
+            <!-- 非标准类别仅作兼容性实验，不声明自己是系统 HOME。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME_ONLY" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-
-        <!-- 应用列表抽屉 -->
-        <activity
-            android:name=".ui.screen.AppDrawerActivity"
-            android:exported="false"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.CarDesktop" />
-
-        <!-- 设置页面 -->
-        <activity
-            android:name=".ui.screen.SettingsActivity"
-            android:exported="false"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.CarDesktop" />
-
-        <!-- 开机广播接收器 -->
-        <receiver
-            android:name=".receiver.BootReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
-
-        <!-- 应用安装/卸载监听 -->
-        <receiver
-            android:name=".receiver.AppChangeReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.PACKAGE_ADDED" />
-                <action android:name="android.intent.action.PACKAGE_REMOVED" />
-                <action android:name="android.intent.action.PACKAGE_REPLACED" />
-                <data android:scheme="package" />
-            </intent-filter>
-        </receiver>
-
     </application>
 </manifest>
