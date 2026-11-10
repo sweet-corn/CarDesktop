@@ -1,0 +1,3 @@
+<resources>
+    <string name="navigation_accessibility_description">仅用于桌面底栏的全局返回和系统最近任务。不读取屏幕内容、不自动点击、不收集操作信息。可随时在系统无障碍设置中关闭。</string>
+</resources>

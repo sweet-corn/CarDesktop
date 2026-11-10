@@ -59,6 +59,8 @@ public class MainActivity extends Activity {
     private SpeedMonitor speedMonitor;
     private String speedText = "-- km/h · GPS未连接";
     private String vehicleSpeedProbe = "尚未检查";
+    private VehicleBridge vehicleBridge;
+    private AdbConnectionManager adbConnection;
     private final android.content.BroadcastReceiver musicUpdates = new android.content.BroadcastReceiver() {
         @Override public void onReceive(android.content.Context context, Intent intent) {
             if (active && musicSession != null) musicSession.refresh();
@@ -70,6 +72,8 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         prefs = getSharedPreferences("settings", MODE_PRIVATE);
         musicSession = new MusicSession(this, this::updateMusic);
+        vehicleBridge = new VehicleBridge(this, snapshot -> { });
+        adbConnection = new AdbConnectionManager(this, vehicleBridge);
         speedMonitor = new SpeedMonitor(this, value -> { speedText = value; if (speedLabel != null) speedLabel.setText(value); });
         java.util.concurrent.ExecutorService probe = java.util.concurrent.Executors.newSingleThreadExecutor();
         probe.execute(() -> {
@@ -80,6 +84,10 @@ public class MainActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         hideSystemBars();
         buildHome();
+        // One attempt on launch; the system owns the RSA authorization prompt.
+        if (prefs.getBoolean("adb_auto", true)) {
+            adbConnection.connect(prefs.getString("adb_host", "127.0.0.1"), prefs.getInt("adb_port", 5555));
+        }
     }
 
     private void hideSystemBars() {
@@ -198,6 +206,40 @@ public class MainActivity extends Activity {
 
     private View makeBottomBar() {
         LinearLayout bar = new LinearLayout(this); bar.setGravity(Gravity.CENTER_VERTICAL); bar.setBackgroundColor(0x99e2eaf0);
+        LinearLayout system = new LinearLayout(this); system.setGravity(Gravity.CENTER_VERTICAL);
+        String[] systemNames = {"返回", "主页", "多任务", "应用"};
+        for (String name : systemNames) {
+            ImageView button = new ImageView(this); button.setImageDrawable(new NavIconDrawable(name));
+            button.setPadding(dp(12), dp(10), dp(12), dp(10)); button.setContentDescription(name);
+            button.setBackgroundResource(android.R.drawable.list_selector_background);
+            button.setOnClickListener(v -> {
+                if ("应用".equals(name)) { showApps("所有应用"); return; }
+                if ("主页".equals(name)) { toast("已在桌面"); return; }
+                int action = "返回".equals(name) ? android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK : android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS;
+                if (!NavigationAccessibilityService.navigate(action)) {
+                    if (NavigationAccessibilityService.isConnected()) toast("当前系统不支持此导航操作");
+                    else requestNavigationAccess();
+                }
+            });
+            system.addView(button, new LinearLayout.LayoutParams(0, -1, 1));
+        }
+        bar.addView(system, new LinearLayout.LayoutParams(0, -1, .24f));
+        LinearLayout climate = new LinearLayout(this); climate.setGravity(Gravity.CENTER_VERTICAL);
+        String[] climateItems = {"风量", "‹", "--°", "›", "‹", "风向", "›", "‹", "--°", "›", "循环"};
+        for (String item : climateItems) {
+            View control;
+            if ("风量".equals(item) || "风向".equals(item) || "循环".equals(item)) {
+                ImageView image = new ImageView(this); image.setImageDrawable(new NavIconDrawable(item));
+                image.setPadding(dp(5), dp(10), dp(5), dp(10)); control = image;
+            } else {
+                TextView label = text(item, item.contains("°") ? 19 : 25, INK); label.setGravity(Gravity.CENTER); control = label;
+            }
+            control.setAlpha(.5f); control.setContentDescription("空调未连接：" + item);
+            control.setOnClickListener(v -> toast("空调接口未连接；当前仅展示布局，不控制车辆"));
+            climate.addView(control, new LinearLayout.LayoutParams(0, -1, item.contains("°") ? 1.5f : 1f));
+        }
+        bar.addView(climate, new LinearLayout.LayoutParams(0, -1, .52f));
+        LinearLayout shortcuts = new LinearLayout(this); shortcuts.setGravity(Gravity.CENTER_VERTICAL);
         for (String name : navOrder()) {
             if (!prefs.getBoolean("nav_" + name, true)) continue;
             String custom = prefs.getString("nav_app_label_" + name, name);
@@ -227,15 +269,23 @@ public class MainActivity extends Activity {
                     default: showSettings();
                 }
             });
-            bar.addView(button, new LinearLayout.LayoutParams(0, -1, 1));
+            shortcuts.addView(button, new LinearLayout.LayoutParams(0, -1, 1));
         }
+        bar.addView(shortcuts, new LinearLayout.LayoutParams(0, -1, .24f));
         return bar;
     }
 
+    private void requestNavigationAccess() {
+        new AlertDialog.Builder(this).setTitle("启用系统导航按键")
+            .setMessage("全局返回和多任务需要手动启用“CarDesk 导航按键”无障碍服务。服务不读取屏幕内容，仅执行你点击的导航操作。Home按键返回本桌面，不更改系统默认桌面。")
+            .setPositiveButton("前往设置", (d, i) -> { try { startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)); } catch (ActivityNotFoundException e) { toast("系统未提供无障碍设置"); } })
+            .setNegativeButton("取消", null).show();
+    }
+
     private List<String> navOrder() {
-        String[] defaults = {"返回", "主页", "导航", "音乐", "应用", "设置"};
+        String[] defaults = {"导航", "音乐", "设置"};
         List<String> result = new ArrayList<>();
-        for (String name : prefs.getString("nav_order", "返回,主页,应用,导航,音乐,设置").split(","))
+        for (String name : prefs.getString("nav_order", "导航,音乐,设置").split(","))
             for (String valid : defaults) if (valid.equals(name) && !result.contains(name)) result.add(name);
         for (String name : defaults) if (!result.contains(name)) result.add(name);
         return result;
@@ -244,7 +294,7 @@ public class MainActivity extends Activity {
         List<String> order = navOrder();
         String[] labels = new String[order.size()];
         for (int i = 0; i < order.size(); i++) labels[i] = (prefs.getBoolean("nav_" + order.get(i), true) ? "显示  " : "隐藏  ") + order.get(i);
-        new AlertDialog.Builder(this).setTitle("底栏按钮管理").setItems(labels, (dialog, index) -> {
+        new AlertDialog.Builder(this).setTitle("右侧自定义按钮").setItems(labels, (dialog, index) -> {
             String name = order.get(index);
             new AlertDialog.Builder(this).setTitle(name).setItems(new String[]{"显示 / 隐藏", "向左移动", "向右移动", "绑定应用 / 恢复默认"}, (d, action) -> {
                 if (action == 3) { configureNav(name); return; }
@@ -288,26 +338,7 @@ public class MainActivity extends Activity {
         return list;
     }
     private void showApps(String heading) {
-        PackageManager pm = getPackageManager(); List<ResolveInfo> apps = launchableApps();
-        ScrollView scroll = new ScrollView(this); GridLayout grid = new GridLayout(this); grid.setColumnCount(5); grid.setPadding(dp(12), dp(12), dp(12), dp(12));
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle(heading).setView(scroll).setNegativeButton("关闭", null).create();
-        for (ResolveInfo info : apps) {
-            if (getPackageName().equals(info.activityInfo.packageName)) continue;
-            LinearLayout tile = new LinearLayout(this); tile.setOrientation(LinearLayout.VERTICAL); tile.setGravity(Gravity.CENTER); tile.setPadding(dp(8), dp(8), dp(8), dp(8));
-            ImageView icon = new ImageView(this); Drawable drawable = info.loadIcon(pm); icon.setImageDrawable(drawable);
-            tile.addView(icon, new LinearLayout.LayoutParams(dp(48), dp(48)));
-            TextView label = text(info.loadLabel(pm).toString(), 12, INK); label.setGravity(Gravity.CENTER); label.setMaxLines(2);
-            tile.addView(label, new LinearLayout.LayoutParams(dp(110), dp(42)));
-            tile.setOnClickListener(v -> {
-                dialog.dismiss();
-                Intent intent = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
-                intent.setClassName(info.activityInfo.packageName, info.activityInfo.name);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-                try { startActivity(intent); } catch (RuntimeException e) { toast("启动失败：" + e.getClass().getSimpleName()); }
-            }); grid.addView(tile);
-        }
-        scroll.addView(grid); dialog.show();
-        if (apps.isEmpty()) toast("未查询到可启动应用；Android 11 以上可能受应用可见性限制");
+        AppsPanel.show(this, heading, launchableApps());
     }
     private void launch(String packageName) {
         Intent intent = getPackageManager().getLaunchIntentForPackage(packageName);
@@ -483,6 +514,7 @@ public class MainActivity extends Activity {
         else registerReceiver(musicUpdates, filter);
         musicReceiverRegistered = true;
         musicSession.start(prefs.getString("music_app", ""));
+        vehicleBridge.start();
         if (prefs.getBoolean("show_speed", true)) speedMonitor.start();
         if (videoWallpaper != null && videoWallpaper.getVisibility() == View.VISIBLE) videoWallpaper.start();
     }
@@ -490,9 +522,10 @@ public class MainActivity extends Activity {
         active = false;
         if (musicReceiverRegistered) { unregisterReceiver(musicUpdates); musicReceiverRegistered = false; }
         musicSession.stop(); if (videoWallpaper != null) videoWallpaper.pause(); super.onPause();
+        vehicleBridge.stop();
         speedMonitor.stop();
     }
-    @Override protected void onDestroy() { speedMonitor.stop(); musicSession.stop(); if (videoWallpaper != null) videoWallpaper.stopPlayback(); super.onDestroy(); }
+    @Override protected void onDestroy() { adbConnection.close(); vehicleBridge.close(); speedMonitor.stop(); musicSession.stop(); if (videoWallpaper != null) videoWallpaper.stopPlayback(); super.onDestroy(); }
     @Override public void onBackPressed() { showSettings(); }
 
     private void launchComponent(String value) {
@@ -568,7 +601,7 @@ public class MainActivity extends Activity {
         panel.category("桌面卡片");
         panel.action("卡片管理", "选择显示的卡片并调整顺序", "管理", this::showCardEditor);
         panel.category("按键设置");
-        panel.action("底栏按键", "显示、排序并绑定应用；也可长按按键", "管理", this::editNavOrder);
+        panel.action("右侧功能按钮", "显示、排序并绑定应用；也可长按按键", "管理", this::editNavOrder);
         panel.category("导航与音乐");
         panel.action("默认导航应用", "选择高德、百度或腾讯地图", "选择", this::selectNavigation);
         panel.action("默认音乐应用", "指定播放器或跟随当前播放", "选择", this::selectMusic);
@@ -577,11 +610,55 @@ public class MainActivity extends Activity {
             .setMessage("通知使用权：" + (hasMusicAccess() ? "已开启" : "未开启") + "\n" + musicSession.diagnostics())
             .setPositiveButton("关闭", null).show());
         panel.category("系统设置");
+        panel.toggle("启动时自动连接ADB", "自动尝试本机调试，首次在系统弹窗始终允许", "adb_auto", true);
+        panel.action("无线ADB连接", "本机TCP调试连接、密钥授权与辅助进程", "连接", this::showAdbConnection);
+        panel.action("车辆只读桥接", "查看辅助进程连接与车辆接口原始数据", "查看", this::showVehicleBridge);
+        panel.action("系统导航授权", "启用全局返回与系统多任务，不读取屏幕", "设置", this::requestNavigationAccess);
         panel.action("车速定位权限", "开启精确定位与GPS，点击车速也可设置", "设置", this::requestSpeedPermission);
         panel.action("车辆车速接口检测", "先探测比亚迪只读接口，不发送车控命令", "查看", () -> new AlertDialog.Builder(this).setTitle("车速接口检测")
             .setMessage(vehicleSpeedProbe + "\n当前使用GPS；车辆接口需真机确认单位、权限及实时性后才能启用。")
             .setPositiveButton("关闭", null).show());
         panel.action("Android 系统设置", "打开设备的系统设置页面", "打开", () -> { try { startActivity(new Intent(Settings.ACTION_SETTINGS)); } catch (ActivityNotFoundException e) { toast("系统设置不可用"); } });
         panel.show();
+    }
+    private void showVehicleBridge() {
+        new AlertDialog.Builder(this).setTitle("车辆只读桥接（实验）")
+            .setMessage(vehicleBridge.diagnostics() + "\n\n通过应用内无线ADB启动，无需电脑命令。桥接运行30分钟后退出，需手动重新连接。接口数据为未确认单位的原始值，不用于仪表或车控。")
+            .setPositiveButton("无线ADB", (dialog, which) -> showAdbConnection())
+            .setNeutralButton("刷新", (dialog, which) -> showVehicleBridge())
+            .setNegativeButton("关闭", null).show();
+    }
+    private void showAdbConnection() {
+        android.content.Context themed = new android.view.ContextThemeWrapper(this, android.R.style.Theme_Material_Light_Dialog_Alert);
+        LinearLayout content = new LinearLayout(themed); content.setOrientation(LinearLayout.VERTICAL); content.setPadding(dp(20), dp(8), dp(20), dp(12));
+        TextView note = new TextView(themed); note.setText("Android 10传统TCP ADB（非配对码/TLS）。仅连接本机，不启用调试、不更改系统设置。首次需允许调试密钥。5555只是常见默认值，请填写车机实际端口。");
+        note.setText("默认启动时自动连接，无需填写。首次请在系统调试授权弹窗勾选“始终允许”并确认。只有默认连接失败时才需要展开高级配置。仅支持本机传统TCP ADB，不支持配对码/TLS。");
+        note.setTextColor(INK); note.setTextSize(13); content.addView(note);
+        TextView advanced = new TextView(themed); advanced.setText("高级配置：地址与端口 ▾"); advanced.setTextColor(0xff087bff); advanced.setPadding(0, dp(12), 0, dp(8)); content.addView(advanced);
+        LinearLayout advancedFields = new LinearLayout(themed); advancedFields.setOrientation(LinearLayout.VERTICAL); advancedFields.setVisibility(View.GONE); content.addView(advancedFields);
+        android.widget.EditText host = new android.widget.EditText(themed); host.setSingleLine(); host.setHint("本机地址");
+        host.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
+        host.setText(prefs.getString("adb_host", "127.0.0.1")); advancedFields.addView(host);
+        android.widget.EditText port = new android.widget.EditText(themed); port.setSingleLine(); port.setHint("TCP端口");
+        port.setInputType(android.text.InputType.TYPE_CLASS_NUMBER); port.setText(String.valueOf(prefs.getInt("adb_port", 5555))); advancedFields.addView(port);
+        advanced.setOnClickListener(v -> advancedFields.setVisibility(advancedFields.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
+        TextView status = new TextView(themed); status.setTextColor(INK); status.setTextSize(13); status.setPadding(0, dp(12), 0, dp(8)); status.setText(adbConnection.state()); content.addView(status);
+        LinearLayout actions = new LinearLayout(themed);
+        android.widget.Button connect = new android.widget.Button(themed); connect.setText("连接并启动");
+        android.widget.Button disconnect = new android.widget.Button(themed); disconnect.setText("断开ADB");
+        actions.addView(connect, new LinearLayout.LayoutParams(0, -2, 1)); actions.addView(disconnect, new LinearLayout.LayoutParams(0, -2, 1)); content.addView(actions);
+        connect.setOnClickListener(v -> {
+            int number;
+            try { number = Integer.parseInt(port.getText().toString().trim()); if (number < 1 || number > 65535) throw new NumberFormatException(); }
+            catch (NumberFormatException error) { port.setError("请输入1–65535"); return; }
+            String address = host.getText().toString().trim(); if (address.isEmpty()) { host.setError("请输入本机地址"); return; }
+            prefs.edit().putString("adb_host", address).putInt("adb_port", number).apply(); adbConnection.connect(address, number);
+        });
+        disconnect.setOnClickListener(v -> adbConnection.disconnect());
+        adbConnection.observe(() -> status.setText(adbConnection.state()));
+        ScrollView scroll = new ScrollView(themed); scroll.addView(content);
+        AlertDialog dialog = new AlertDialog.Builder(themed).setTitle("应用内无线ADB").setView(scroll)
+            .setPositiveButton("关闭页面", null).setNeutralButton("桥接诊断", (d, which) -> showVehicleBridge()).create();
+        dialog.setOnDismissListener(d -> adbConnection.observe(null)); dialog.show();
     }
 }

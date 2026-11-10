@@ -19,6 +19,25 @@ public final class NavIconDrawable extends Drawable {
         paint.setStrokeJoin(Paint.Join.ROUND); paint.setStrokeCap(Paint.Cap.ROUND);
         Path path = new Path();
         switch (name) {
+            case "多任务":
+                canvas.drawRoundRect(4, 8, 24, 27, 2, 2, paint);
+                path.moveTo(10, 4); path.lineTo(28, 4); path.lineTo(28, 22); break;
+            case "风量":
+                for (int i = 0; i < 4; i++) {
+                    canvas.save(); canvas.rotate(i * 90, 16, 16);
+                    canvas.drawOval(14, 3, 23, 15, paint); canvas.restore();
+                }
+                canvas.drawCircle(16, 16, 2, paint); break;
+            case "风向":
+                canvas.drawCircle(21, 5, 2, paint);
+                path.moveTo(20, 10); path.lineTo(16, 19); path.lineTo(7, 19);
+                path.moveTo(25, 12); path.lineTo(20, 25); path.lineTo(8, 25);
+                path.moveTo(4, 9); path.lineTo(13, 9); path.moveTo(3, 13); path.lineTo(11, 13); break;
+            case "循环":
+                path.moveTo(3, 22); path.lineTo(3, 16); path.lineTo(8, 13); path.lineTo(12, 7);
+                path.lineTo(23, 7); path.lineTo(27, 13); path.lineTo(29, 16); path.lineTo(29, 22); path.close();
+                path.moveTo(10, 17); path.lineTo(22, 17); path.lineTo(18, 13);
+                path.moveTo(22, 17); path.lineTo(18, 21); break;
             case "返回":
                 path.moveTo(11, 5); path.lineTo(4, 12); path.lineTo(11, 19);
                 path.moveTo(4, 12); path.lineTo(23, 12); path.quadTo(28, 12, 28, 17);
