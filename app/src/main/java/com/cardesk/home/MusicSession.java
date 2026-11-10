@@ -40,12 +40,14 @@ public final class MusicSession {
         } catch (SecurityException e) { bind(null); }
     }
 
-    private void refresh() {
+    public void refresh() {
+        if (!started) return;
         try {
             List<MediaController> controllers = manager.getActiveSessions(listener);
             MediaController best = null;
             for (MediaController item : controllers) {
                 if (!selectedPackage.isEmpty() && !selectedPackage.equals(item.getPackageName())) continue;
+                if (item.getPlaybackState() == null && item.getMetadata() == null) continue;
                 if (best == null) best = item;
                 PlaybackState state = item.getPlaybackState();
                 if (state != null && state.getState() == PlaybackState.STATE_PLAYING) { best = item; break; }
@@ -55,6 +57,7 @@ public final class MusicSession {
     }
 
     private void bind(MediaController next) {
+        if (controller != null && next != null && controller.getSessionToken().equals(next.getSessionToken())) { changed.run(); return; }
         if (controller != null) controller.unregisterCallback(callback);
         controller = next;
         if (controller != null) controller.registerCallback(callback, handler);
@@ -62,6 +65,20 @@ public final class MusicSession {
     }
 
     public MediaController controller() { return controller; }
+    public String diagnostics() {
+        StringBuilder report = new StringBuilder("指定播放器：").append(selectedPackage.isEmpty() ? "自动" : selectedPackage);
+        try {
+            List<MediaController> items = manager.getActiveSessions(listener);
+            report.append("\n可见媒体会话：").append(items.size());
+            for (MediaController item : items) {
+                PlaybackState state = item.getPlaybackState();
+                report.append("\n\n").append(item.getPackageName()).append("\n状态：")
+                    .append(state == null ? "未提供" : String.valueOf(state.getState()))
+                    .append(" / 操作标记：").append(state == null ? "无" : String.valueOf(state.getActions()));
+            }
+        } catch (SecurityException e) { report.append("\n系统拒绝读取媒体会话。请开启通知使用权，或关闭后重新开启。车机也可能限制第三方读取。"); }
+        return report.toString();
+    }
     public void stop() {
         if (started) manager.removeOnActiveSessionsChangedListener(sessions);
         started = false;

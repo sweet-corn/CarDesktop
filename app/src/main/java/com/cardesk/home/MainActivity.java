@@ -19,14 +19,12 @@ import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.GridLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.Switch;
 import android.widget.TextClock;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -57,6 +55,12 @@ public class MainActivity extends Activity {
     private TextView playButton;
     private TextView nextButton;
     private TextView topMusic;
+    private final android.content.BroadcastReceiver musicUpdates = new android.content.BroadcastReceiver() {
+        @Override public void onReceive(android.content.Context context, Intent intent) {
+            if (active && musicSession != null) musicSession.refresh();
+        }
+    };
+    private boolean musicReceiverRegistered;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -159,7 +163,7 @@ public class MainActivity extends Activity {
     private View navigationCard() {
         LinearLayout group = new LinearLayout(this); group.setGravity(Gravity.CENTER);
         group.setBackground(shape(0xbbeef3f7, 8));
-        int width = Math.max(dp(190), (int) (getResources().getDisplayMetrics().widthPixels * .223f));
+        int width = dp(215);
         LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(width, dp(90)); layout.setMargins(dp(4), 0, dp(4), 0); group.setLayoutParams(layout);
         String[] icons = {"⌕", "⌂", "P"}; String[] labels = {"搜索", "回家", "停车场"};
         for (int i = 0; i < labels.length; i++) {
@@ -180,15 +184,26 @@ public class MainActivity extends Activity {
 
     private View makeBottomBar() {
         LinearLayout bar = new LinearLayout(this); bar.setGravity(Gravity.CENTER_VERTICAL); bar.setBackgroundColor(0x99e2eaf0);
-        String[] names = {"返回", "主页", "导航", "音乐", "应用", "设置"};
-        for (String name : names) {
+        for (String name : navOrder()) {
             if (!prefs.getBoolean("nav_" + name, true)) continue;
             String custom = prefs.getString("nav_app_label_" + name, name);
-            TextView button = text(custom, 14, INK); button.setGravity(Gravity.CENTER); button.setContentDescription(custom);
+            LinearLayout button = new LinearLayout(this); button.setGravity(Gravity.CENTER);
+            button.setBackgroundResource(android.R.drawable.list_selector_background); button.setContentDescription(custom);
+            String component = prefs.getString("nav_app_" + name, "");
+            Drawable icon = null;
+            android.content.ComponentName target = android.content.ComponentName.unflattenFromString(component);
+            if (target != null) try { icon = getPackageManager().getActivityIcon(target); } catch (PackageManager.NameNotFoundException ignored) { }
+            if (icon != null) {
+                ImageView image = new ImageView(this); image.setImageDrawable(icon);
+                button.addView(image, new LinearLayout.LayoutParams(dp(27), dp(27)));
+            } else {
+                ImageView symbol = new ImageView(this); symbol.setImageDrawable(new NavIconDrawable(name));
+                button.addView(symbol, new LinearLayout.LayoutParams(dp(27), dp(27)));
+            }
             button.setOnLongClickListener(v -> { configureNav(name); return true; });
             button.setOnClickListener(v -> {
-                String component = prefs.getString("nav_app_" + name, "");
-                if (!component.isEmpty()) { launchComponent(component); return; }
+                String selected = prefs.getString("nav_app_" + name, "");
+                if (!selected.isEmpty()) { launchComponent(selected); return; }
                 switch (name) {
                     case "返回": onBackPressed(); break;
                     case "主页": break;
@@ -203,11 +218,37 @@ public class MainActivity extends Activity {
         return bar;
     }
 
+    private List<String> navOrder() {
+        String[] defaults = {"返回", "主页", "导航", "音乐", "应用", "设置"};
+        List<String> result = new ArrayList<>();
+        for (String name : prefs.getString("nav_order", "返回,主页,应用,导航,音乐,设置").split(","))
+            for (String valid : defaults) if (valid.equals(name) && !result.contains(name)) result.add(name);
+        for (String name : defaults) if (!result.contains(name)) result.add(name);
+        return result;
+    }
+    private void editNavOrder() {
+        List<String> order = navOrder();
+        String[] labels = new String[order.size()];
+        for (int i = 0; i < order.size(); i++) labels[i] = (prefs.getBoolean("nav_" + order.get(i), true) ? "显示  " : "隐藏  ") + order.get(i);
+        new AlertDialog.Builder(this).setTitle("底栏按钮管理").setItems(labels, (dialog, index) -> {
+            String name = order.get(index);
+            new AlertDialog.Builder(this).setTitle(name).setItems(new String[]{"显示 / 隐藏", "向左移动", "向右移动", "绑定应用 / 恢复默认"}, (d, action) -> {
+                if (action == 3) { configureNav(name); return; }
+                if (action == 0) prefs.edit().putBoolean("nav_" + name, !prefs.getBoolean("nav_" + name, true)).apply();
+                else {
+                    int target = index + (action == 1 ? -1 : 1);
+                    if (target >= 0 && target < order.size()) Collections.swap(order, index, target);
+                    prefs.edit().putString("nav_order", android.text.TextUtils.join(",", order)).apply();
+                }
+                rebuildHome(); editNavOrder();
+            }).setNegativeButton("取消", null).show();
+        }).setNegativeButton("完成", null).show();
+    }
+
     private View card(String icon, String title, String subtitle, Runnable action) {
         LinearLayout box = new LinearLayout(this); box.setGravity(Gravity.CENTER_VERTICAL); box.setPadding(dp(20), 0, dp(16), 0);
         box.setBackground(shape(0xbbeef3f7, 8));
-        int screenWidth = getResources().getDisplayMetrics().widthPixels;
-        int width = Math.max(dp(190), (int) (screenWidth * .223f));
+        int width = dp(190);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(width, dp(90)); params.setMargins(dp(4), 0, dp(4), 0); box.setLayoutParams(params);
         if ("vehicle".equals(icon)) {
             ImageView symbol = new ImageView(this); symbol.setImageDrawable(new CarIconDrawable());
@@ -241,7 +282,7 @@ public class MainActivity extends Activity {
             LinearLayout tile = new LinearLayout(this); tile.setOrientation(LinearLayout.VERTICAL); tile.setGravity(Gravity.CENTER); tile.setPadding(dp(8), dp(8), dp(8), dp(8));
             ImageView icon = new ImageView(this); Drawable drawable = info.loadIcon(pm); icon.setImageDrawable(drawable);
             tile.addView(icon, new LinearLayout.LayoutParams(dp(48), dp(48)));
-            TextView label = text(info.loadLabel(pm).toString(), 12, Color.WHITE); label.setGravity(Gravity.CENTER); label.setMaxLines(2);
+            TextView label = text(info.loadLabel(pm).toString(), 12, INK); label.setGravity(Gravity.CENTER); label.setMaxLines(2);
             tile.addView(label, new LinearLayout.LayoutParams(dp(110), dp(42)));
             tile.setOnClickListener(v -> {
                 dialog.dismiss();
@@ -280,7 +321,7 @@ public class MainActivity extends Activity {
     private View musicCard() {
         LinearLayout box = new LinearLayout(this); box.setGravity(Gravity.CENTER_VERTICAL); box.setPadding(dp(16), dp(8), dp(12), dp(8));
         box.setBackground(shape(0xbbeef3f7, 8));
-        int width = Math.max(dp(240), (int) (getResources().getDisplayMetrics().widthPixels * .223f));
+        int width = dp(235);
         LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(width, dp(90)); layout.setMargins(dp(4), 0, dp(4), 0); box.setLayoutParams(layout);
         albumArt = new ImageView(this); albumArt.setScaleType(ImageView.ScaleType.CENTER_CROP); albumArt.setContentDescription("打开音乐应用");
         albumArt.setBackground(shape(0x33587896, 8)); albumArt.setClipToOutline(true);
@@ -334,13 +375,11 @@ public class MainActivity extends Activity {
         android.media.session.MediaController controller = musicSession.controller();
         if (controller == null) { toast("请先在音乐应用播放一首歌曲，再返回桌面"); openMusic(); return; }
         android.media.session.PlaybackState state = controller.getPlaybackState();
-        if (state == null) { toast("该应用暂未提供播放状态"); return; }
-        boolean playing = state.getState() == android.media.session.PlaybackState.STATE_PLAYING;
+        boolean playing = state != null && state.getState() == android.media.session.PlaybackState.STATE_PLAYING;
         long action = next ? android.media.session.PlaybackState.ACTION_SKIP_TO_NEXT : playing ? android.media.session.PlaybackState.ACTION_PAUSE : android.media.session.PlaybackState.ACTION_PLAY;
-        if ((state.getActions() & action) == 0 && (next || (state.getActions() & android.media.session.PlaybackState.ACTION_PLAY_PAUSE) == 0)) { toast("音乐应用未提供此控制功能"); return; }
         try {
             if (next) controller.getTransportControls().skipToNext();
-            else if ((state.getActions() & action) == 0) {
+            else if (state != null && (state.getActions() & action) == 0 && (state.getActions() & android.media.session.PlaybackState.ACTION_PLAY_PAUSE) != 0) {
                 controller.dispatchMediaButtonEvent(new android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE));
                 controller.dispatchMediaButtonEvent(new android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE));
             }
@@ -352,7 +391,7 @@ public class MainActivity extends Activity {
         android.media.session.MediaController controller = musicSession.controller();
         android.media.MediaMetadata metadata = controller == null ? null : controller.getMetadata();
         android.media.session.PlaybackState state = controller == null ? null : controller.getPlaybackState();
-        String title = hasMusicAccess() ? "等待播放 · 点击打开音乐" : "点击播放按钮开启音乐权限";
+        String title = hasMusicAccess() ? (controller == null ? "未找到媒体会话，请先播放" : "已连接 · 等待歌曲信息") : "需要开启通知使用权";
         if (metadata != null) {
             String track = metadata.getString(android.media.MediaMetadata.METADATA_KEY_TITLE);
             String artist = metadata.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST);
@@ -370,7 +409,7 @@ public class MainActivity extends Activity {
         try { if (!name.isEmpty()) icon = getPackageManager().getApplicationIcon(name); } catch (PackageManager.NameNotFoundException ignored) { }
         musicAppIcon.setImageDrawable(icon);
         if (cover == null) albumArt.setImageDrawable(icon); else albumArt.setImageBitmap(cover);
-        nextButton.setAlpha(state != null && (state.getActions() & android.media.session.PlaybackState.ACTION_SKIP_TO_NEXT) != 0 ? 1f : .45f);
+        nextButton.setAlpha(controller != null ? 1f : .45f);
     }
     private void chooseWallpaper() {
         pickWallpaper(false);
@@ -422,8 +461,21 @@ public class MainActivity extends Activity {
             }
         } catch (Exception e) { videoWallpaper.setVisibility(View.GONE); toast("壁纸不可用，请重新选择"); }
     }
-    @Override protected void onResume() { super.onResume(); active = true; musicSession.start(prefs.getString("music_app", "")); if (videoWallpaper != null && videoWallpaper.getVisibility() == View.VISIBLE) videoWallpaper.start(); }
-    @Override protected void onPause() { active = false; musicSession.stop(); if (videoWallpaper != null) videoWallpaper.pause(); super.onPause(); }
+    @Override protected void onResume() {
+        super.onResume(); active = true;
+        Intent filterIntent = new Intent(MusicNotificationListener.ACTION_CHANGED);
+        android.content.IntentFilter filter = new android.content.IntentFilter(filterIntent.getAction());
+        if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(musicUpdates, filter, android.content.Context.RECEIVER_NOT_EXPORTED);
+        else registerReceiver(musicUpdates, filter);
+        musicReceiverRegistered = true;
+        musicSession.start(prefs.getString("music_app", ""));
+        if (videoWallpaper != null && videoWallpaper.getVisibility() == View.VISIBLE) videoWallpaper.start();
+    }
+    @Override protected void onPause() {
+        active = false;
+        if (musicReceiverRegistered) { unregisterReceiver(musicUpdates); musicReceiverRegistered = false; }
+        musicSession.stop(); if (videoWallpaper != null) videoWallpaper.pause(); super.onPause();
+    }
     @Override protected void onDestroy() { musicSession.stop(); if (videoWallpaper != null) videoWallpaper.stopPlayback(); super.onDestroy(); }
     @Override public void onBackPressed() { showSettings(); }
 
@@ -468,37 +520,29 @@ public class MainActivity extends Activity {
         }).setNegativeButton("完成", null).show();
     }
 
-    private void addSettingButton(LinearLayout parent, String label, Runnable action) {
-        Button button = new Button(this); button.setText(label); button.setOnClickListener(v -> action.run()); parent.addView(button);
-    }
-    private void addToggle(LinearLayout parent, String label, String key, boolean fallback) {
-        Switch toggle = new Switch(this); toggle.setText(label); toggle.setPadding(dp(8), dp(10), dp(8), dp(10)); toggle.setChecked(prefs.getBoolean(key, fallback));
-        toggle.setOnCheckedChangeListener((button, checked) -> { prefs.edit().putBoolean(key, checked).apply(); rebuildHome(); }); parent.addView(toggle);
-    }
     private void showSettings() {
-        LinearLayout content = new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL); content.setPadding(dp(24), dp(12), dp(24), dp(12));
-        addToggle(content, "显示大时钟", "clock", false);
-        addToggle(content, "显示应用顶部栏", "top_bar", true);
-        addToggle(content, "显示应用底部栏", "bottom_bar", true);
-        addSettingButton(content, "选择图片壁纸", this::chooseWallpaper);
-        addSettingButton(content, "选择视频壁纸（静音循环）", () -> pickWallpaper(true));
-        addSettingButton(content, "恢复默认壁纸", () -> { prefs.edit().remove("wallpaper").remove("video_wallpaper").apply(); rebuildHome(); });
-        addSettingButton(content, "卡片显示与排序", this::showCardEditor);
-        addSettingButton(content, "默认导航应用", this::selectNavigation);
-        addSettingButton(content, "默认音乐应用", this::selectMusic);
-        addSettingButton(content, "音乐通知使用权", this::requestMusicAccess);
-        addSettingButton(content, "底栏按键配置", () -> new AlertDialog.Builder(this).setTitle("选择按键（也可长按底栏按键）")
-            .setItems(new String[]{"返回", "主页", "导航", "音乐", "应用", "设置"}, (d, i) -> configureNav(new String[]{"返回", "主页", "导航", "音乐", "应用", "设置"}[i])).show());
-        addSettingButton(content, "底栏按键显示", () -> {
-            String[] names = {"返回", "主页", "导航", "音乐", "应用", "设置"}; boolean[] checks = new boolean[names.length];
-            for (int i = 0; i < names.length; i++) checks[i] = prefs.getBoolean("nav_" + names[i], true);
-            new AlertDialog.Builder(this).setTitle("显示按键").setMultiChoiceItems(names, checks, (d, i, checked) -> checks[i] = checked)
-                .setPositiveButton("保存", (d, which) -> { SharedPreferences.Editor edit = prefs.edit(); for (int i = 0; i < names.length; i++) edit.putBoolean("nav_" + names[i], checks[i]); edit.apply(); rebuildHome(); })
-                .setNegativeButton("取消", null).show();
-        });
-        Button system = new Button(this); system.setText("打开系统设置"); system.setOnClickListener(v -> { try { startActivity(new Intent(Settings.ACTION_SETTINGS)); } catch (ActivityNotFoundException e) { toast("系统设置不可用"); } }); content.addView(system);
-        TextView note = text("长按桌面可随时返回设置。当前仅在本应用内请求隐藏系统栏；退出后恢复由系统管理。底栏返回键打开桌面设置，不是跨应用全局返回。音乐需通知使用权及播放器媒体会话支持；车辆数据尚未接入。仅停车测试。", 13, 0xffaaaaaa); note.setPadding(0, dp(12), 0, 0); content.addView(note);
-        ScrollView scroll = new ScrollView(this); scroll.addView(content);
-        new AlertDialog.Builder(this).setTitle("桌面设置").setView(scroll).setPositiveButton("完成", null).show();
+        SettingsPanel panel = new SettingsPanel(this, prefs, this::rebuildHome);
+        panel.category("显示设置");
+        panel.toggle("桌面大时钟", "在壁纸上显示时间与日期", "clock", false);
+        panel.toggle("顶部状态栏", "显示应用提供的时间与音乐信息", "top_bar", true);
+        panel.toggle("底部导航栏", "显示应用内的快捷按钮", "bottom_bar", true);
+        panel.category("壁纸设置");
+        panel.action("图片壁纸", "从本地选择一张图片", "选择图片", this::chooseWallpaper);
+        panel.action("动态壁纸", "本地视频静音循环播放", "选择视频", () -> pickWallpaper(true));
+        panel.action("默认壁纸", "恢复内置浅色背景", "恢复", () -> { prefs.edit().remove("wallpaper").remove("video_wallpaper").apply(); rebuildHome(); });
+        panel.category("桌面卡片");
+        panel.action("卡片管理", "选择显示的卡片并调整顺序", "管理", this::showCardEditor);
+        panel.category("按键设置");
+        panel.action("底栏按键", "显示、排序并绑定应用；也可长按按键", "管理", this::editNavOrder);
+        panel.category("导航与音乐");
+        panel.action("默认导航应用", "选择高德、百度或腾讯地图", "选择", this::selectNavigation);
+        panel.action("默认音乐应用", "指定播放器或跟随当前播放", "选择", this::selectMusic);
+        panel.action("音乐通知使用权", "授权后读取与控制媒体会话", "授权", this::requestMusicAccess);
+        panel.action("音乐连接诊断", "检查权限和当前媒体会话", "查看", () -> new AlertDialog.Builder(new android.view.ContextThemeWrapper(this, android.R.style.Theme_Material_Light_Dialog_Alert)).setTitle("音乐连接诊断")
+            .setMessage("通知使用权：" + (hasMusicAccess() ? "已开启" : "未开启") + "\n" + musicSession.diagnostics())
+            .setPositiveButton("关闭", null).show());
+        panel.category("系统设置");
+        panel.action("Android 系统设置", "打开设备的系统设置页面", "打开", () -> { try { startActivity(new Intent(Settings.ACTION_SETTINGS)); } catch (ActivityNotFoundException e) { toast("系统设置不可用"); } });
+        panel.show();
     }
 }
