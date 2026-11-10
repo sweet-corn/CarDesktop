@@ -55,6 +55,10 @@ public class MainActivity extends Activity {
     private TextView playButton;
     private TextView nextButton;
     private TextView topMusic;
+    private TextView speedLabel;
+    private SpeedMonitor speedMonitor;
+    private String speedText = "-- km/h · GPS未连接";
+    private String vehicleSpeedProbe = "尚未检查";
     private final android.content.BroadcastReceiver musicUpdates = new android.content.BroadcastReceiver() {
         @Override public void onReceive(android.content.Context context, Intent intent) {
             if (active && musicSession != null) musicSession.refresh();
@@ -66,6 +70,13 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         prefs = getSharedPreferences("settings", MODE_PRIVATE);
         musicSession = new MusicSession(this, this::updateMusic);
+        speedMonitor = new SpeedMonitor(this, value -> { speedText = value; if (speedLabel != null) speedLabel.setText(value); });
+        java.util.concurrent.ExecutorService probe = java.util.concurrent.Executors.newSingleThreadExecutor();
+        probe.execute(() -> {
+            String result = SpeedMonitor.probeVehicleApi(getApplicationContext());
+            runOnUiThread(() -> vehicleSpeedProbe = result);
+        });
+        probe.shutdown();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         hideSystemBars();
         buildHome();
@@ -121,7 +132,7 @@ public class MainActivity extends Activity {
         clockBlock = new LinearLayout(this); clockBlock.setOrientation(LinearLayout.VERTICAL); clockBlock.setGravity(Gravity.CENTER_HORIZONTAL);
         TextClock clock = new TextClock(this); clock.setFormat12Hour("HH:mm"); clock.setFormat24Hour("HH:mm"); clock.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 72 * homeScale); clock.setTextColor(Color.WHITE); clock.setShadowLayer(dp(4), dp(2), dp(2), 0x80000000);
         TextClock date = new TextClock(this); date.setFormat12Hour("yyyy年MM月dd日 EEEE"); date.setFormat24Hour("yyyy年MM月dd日 EEEE"); date.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 18 * homeScale); date.setTextColor(0xccffffff);
-        clockBlock.addView(clock); clockBlock.addView(date); clockBlock.setVisibility(prefs.getBoolean("clock", false) ? View.VISIBLE : View.GONE);
+        clockBlock.addView(clock); clockBlock.addView(date); clockBlock.setVisibility(prefs.getBoolean("clock", true) ? View.VISIBLE : View.GONE);
         root.addView(clockBlock, position(-2, -2, Gravity.TOP | Gravity.START, 60, 80, 0, 0));
 
         LinearLayout top = new LinearLayout(this); top.setGravity(Gravity.CENTER_VERTICAL); top.setPadding(dp(12), 0, dp(12), 0);
@@ -129,6 +140,9 @@ public class MainActivity extends Activity {
         top.addView(smallClock); topMusic = text("   ♫  音乐未连接", 12, INK); topMusic.setSingleLine(true); topMusic.setEllipsize(android.text.TextUtils.TruncateAt.END); top.addView(topMusic, new LinearLayout.LayoutParams(0, -2, 1));
         TextView status = text("状态栏", 12, INK); status.setOnClickListener(v -> showSettings()); top.addView(status);
         if (prefs.getBoolean("top_bar", true)) root.addView(top, position(-1, 36, Gravity.TOP, 0, 0, 0, 0));
+        speedLabel = text(speedText, 20, INK); speedLabel.setGravity(Gravity.CENTER_VERTICAL);
+        speedLabel.setOnClickListener(v -> requestSpeedPermission());
+        if (prefs.getBoolean("show_speed", true)) root.addView(speedLabel, position(-2, 36, Gravity.TOP | Gravity.START, 16, 40, 0, 0));
 
         HorizontalScrollView scroll = new HorizontalScrollView(this); scroll.setHorizontalScrollBarEnabled(false);
         LinearLayout cards = new LinearLayout(this); cards.setPadding(dp(2), dp(8), dp(2), dp(8)); cards.setGravity(Gravity.CENTER_VERTICAL);
@@ -469,14 +483,16 @@ public class MainActivity extends Activity {
         else registerReceiver(musicUpdates, filter);
         musicReceiverRegistered = true;
         musicSession.start(prefs.getString("music_app", ""));
+        if (prefs.getBoolean("show_speed", true)) speedMonitor.start();
         if (videoWallpaper != null && videoWallpaper.getVisibility() == View.VISIBLE) videoWallpaper.start();
     }
     @Override protected void onPause() {
         active = false;
         if (musicReceiverRegistered) { unregisterReceiver(musicUpdates); musicReceiverRegistered = false; }
         musicSession.stop(); if (videoWallpaper != null) videoWallpaper.pause(); super.onPause();
+        speedMonitor.stop();
     }
-    @Override protected void onDestroy() { musicSession.stop(); if (videoWallpaper != null) videoWallpaper.stopPlayback(); super.onDestroy(); }
+    @Override protected void onDestroy() { speedMonitor.stop(); musicSession.stop(); if (videoWallpaper != null) videoWallpaper.stopPlayback(); super.onDestroy(); }
     @Override public void onBackPressed() { showSettings(); }
 
     private void launchComponent(String value) {
@@ -500,7 +516,25 @@ public class MainActivity extends Activity {
             edit.apply(); rebuildHome();
         }).setNegativeButton("取消", null).show();
     }
-    private void rebuildHome() { if (videoWallpaper != null) videoWallpaper.stopPlayback(); buildHome(); hideSystemBars(); }
+    private void rebuildHome() {
+        if (videoWallpaper != null) videoWallpaper.stopPlayback(); buildHome(); hideSystemBars();
+        if (active) { if (prefs.getBoolean("show_speed", true)) speedMonitor.start(); else speedMonitor.stop(); }
+    }
+    private void requestSpeedPermission() {
+        if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            new AlertDialog.Builder(this).setTitle("GPS车速")
+                .setMessage("需要精确定位权限和开启GPS。仅在桌面前台获取速度；定位失效时显示 --，不可替代原车仪表。")
+                .setPositiveButton("授权", (d, i) -> requestPermissions(new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION}, 103))
+                .setNegativeButton("取消", null).show();
+        } else {
+            try { startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)); }
+            catch (ActivityNotFoundException e) { toast("系统未提供定位设置"); }
+        }
+    }
+    @Override public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(request, permissions, results);
+        if (request == 103 && active && prefs.getBoolean("show_speed", true)) speedMonitor.start();
+    }
 
     private void showCardEditor() {
         List<String> order = cardOrder();
@@ -523,7 +557,8 @@ public class MainActivity extends Activity {
     private void showSettings() {
         SettingsPanel panel = new SettingsPanel(this, prefs, this::rebuildHome);
         panel.category("显示设置");
-        panel.toggle("桌面大时钟", "在壁纸上显示时间与日期", "clock", false);
+        panel.toggle("桌面大时钟", "默认显示时间与日期；保留已保存的开关", "clock", true);
+        panel.toggle("实时车速", "左上角显示GPS速度，仅供辅助参考", "show_speed", true);
         panel.toggle("顶部状态栏", "显示应用提供的时间与音乐信息", "top_bar", true);
         panel.toggle("底部导航栏", "显示应用内的快捷按钮", "bottom_bar", true);
         panel.category("壁纸设置");
@@ -542,6 +577,10 @@ public class MainActivity extends Activity {
             .setMessage("通知使用权：" + (hasMusicAccess() ? "已开启" : "未开启") + "\n" + musicSession.diagnostics())
             .setPositiveButton("关闭", null).show());
         panel.category("系统设置");
+        panel.action("车速定位权限", "开启精确定位与GPS，点击车速也可设置", "设置", this::requestSpeedPermission);
+        panel.action("车辆车速接口检测", "先探测比亚迪只读接口，不发送车控命令", "查看", () -> new AlertDialog.Builder(this).setTitle("车速接口检测")
+            .setMessage(vehicleSpeedProbe + "\n当前使用GPS；车辆接口需真机确认单位、权限及实时性后才能启用。")
+            .setPositiveButton("关闭", null).show());
         panel.action("Android 系统设置", "打开设备的系统设置页面", "打开", () -> { try { startActivity(new Intent(Settings.ACTION_SETTINGS)); } catch (ActivityNotFoundException e) { toast("系统设置不可用"); } });
         panel.show();
     }
