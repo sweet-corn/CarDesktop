@@ -13,6 +13,9 @@ public final class AdbConnectionManager {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private volatile LocalAdbClient client;
+    private volatile LocalAdbClient permissionClient;
+    private final ExecutorService permissions = Executors.newSingleThreadExecutor();
+    private boolean granting;
     private int generation;
     private String state = "未连接";
     private Runnable observer = () -> { };
@@ -59,5 +62,44 @@ public final class AdbConnectionManager {
         if (previous != null) previous.close();
         state = "ADB已断开（辅助进程可能继续运行至30分钟到期）"; observer.run();
     }
-    public void close() { disconnect(); worker.shutdownNow(); observer = () -> { }; }
+    public void grantMusicAccess(String host, int port, java.util.function.Consumer<String> complete) {
+        executeFixedCommand(host, port, "cmd notification allow_listener com.cardesk.home/com.cardesk.home.MusicNotificationListener", complete);
+    }
+    public void openRecents(String host, int port, java.util.function.Consumer<String> complete) {
+        executeFixedCommand(host, port, "input keyevent 187; echo CAR_DESK_RECENTS_RESULT:$?", complete);
+    }
+    private void executeFixedCommand(String host, int port, String command, java.util.function.Consumer<String> complete) {
+        if (granting) { complete.accept("ADB操作正在执行，请稍候"); return; }
+        granting = true;
+        LocalAdbClient connection = new LocalAdbClient(context); permissionClient = connection;
+        Runnable timeout = () -> {
+            if (permissionClient != connection) return;
+            permissionClient = null; granting = false; connection.close();
+            complete.accept("ADB操作超时，请检查连接和系统授权弹窗");
+        };
+        main.postDelayed(timeout, 70000);
+        permissions.execute(() -> {
+            String result;
+            try {
+                connection.connect(host, port, message -> { });
+                StringBuilder response = new StringBuilder();
+                connection.shell(command, chunk -> {
+                    if (response.length() < 1024) response.append(chunk, 0, Math.min(chunk.length(), 1024 - response.length()));
+                });
+                result = response.toString().trim();
+            } catch (Exception error) { result = "ADB操作失败：" + error.getClass().getSimpleName(); }
+            finally { connection.close(); }
+            String output = result;
+            main.post(() -> {
+                main.removeCallbacks(timeout);
+                if (permissionClient != connection) return;
+                permissionClient = null; granting = false; complete.accept(output);
+            });
+        });
+    }
+    public void close() {
+        disconnect(); worker.shutdownNow(); observer = () -> { };
+        LocalAdbClient pending = permissionClient; permissionClient = null;
+        if (pending != null) pending.close(); permissions.shutdownNow();
+    }
 }

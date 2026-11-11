@@ -59,6 +59,18 @@
 
 ## 2026-11-10 反馈修订（待设备验证）
 
+### 车机实测反馈：音乐授权
+
+### 多任务按钮反馈修订
+
+- 对照参考 APK 的 `o/a00.smali` 确认其一条路径调用 `AccessibilityService.performGlobalAction(3)`。CarDesk 优先使用同一系统动作；未连接服务或返回 false 时，通过独立本机ADB连接执行固定 `input keyevent 187` 作为新增兼容兜底。
+- 检查ADB命令返回码并显示连接错误；命令返回0只表示按键注入命令成功，不能证明厂商最近任务界面已展示。系统动作返回true但无界面变化时不会再次注入，避免重复切换。尚待真车验证。
+
+- 用户反馈车机系统通知使用权页面提示不支持操作。参考APK的混淆字符串解码后确认，其 `NavBarService` 有 `cmd notification allow_listener` 授权路径，并尝试读取 `enabled_notification_listeners`；媒体会话管理使用 `MediaSessionManager.getActiveSessions`。
+- CarDesk 的音乐授权按钮现征得用户确认后，经独立的本机ADB连接执行固定命令 `cmd notification allow_listener com.cardesk.home/com.cardesk.home.MusicNotificationListener`，不写入或覆盖其他应用的授权列表。通过系统设置检查结果，而不是仅凭命令成功声称授权成功。
+- 通知监听可读取通知内容，界面必须明确告知；仅使用授权后的媒体会话，不自动清理通知。音频应用仍需提供兼容媒体会话。尚未在真实车机验证该命令及系统行为。
+- 实测截图中的车速 `SecurityException` 来自普通应用进程直接探测，并非ADB shell桥接的结果；界面现分别显示应用直读和桥接结果，避免误判。
+
 ### 车辆 ADB 只读桥接实验
 
 #### 应用内连接（取代下述电脑手工启动流程）

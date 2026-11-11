@@ -74,7 +74,7 @@ public class MainActivity extends Activity {
         musicSession = new MusicSession(this, this::updateMusic);
         vehicleBridge = new VehicleBridge(this, snapshot -> { });
         adbConnection = new AdbConnectionManager(this, vehicleBridge);
-        speedMonitor = new SpeedMonitor(this, value -> { speedText = value; if (speedLabel != null) speedLabel.setText(value); });
+        speedMonitor = new SpeedMonitor(this, value -> { speedText = value; if (speedLabel != null) speedLabel.setText(formatSpeed(value)); });
         java.util.concurrent.ExecutorService probe = java.util.concurrent.Executors.newSingleThreadExecutor();
         probe.execute(() -> {
             String result = SpeedMonitor.probeVehicleApi(getApplicationContext());
@@ -118,6 +118,16 @@ public class MainActivity extends Activity {
         t.setTextColor(color); return t;
     }
     private void toast(String message) { Toast.makeText(this, message, Toast.LENGTH_SHORT).show(); }
+    private CharSequence formatSpeed(String value) {
+        int split = value.indexOf(" km/h");
+        if (split < 0) return value;
+        String number = value.substring(0, split);
+        String suffix = value.substring(split).trim().replace(" · ", "\n");
+        android.text.SpannableString result = new android.text.SpannableString(number + "\n" + suffix);
+        result.setSpan(new android.text.style.RelativeSizeSpan(.31f), number.length() + 1, result.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        result.setSpan(new android.text.style.StyleSpan(Typeface.NORMAL), number.length() + 1, result.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return result;
+    }
     private FrameLayout.LayoutParams position(int width, int height, int gravity, int left, int top, int right, int bottom) {
         FrameLayout.LayoutParams p = new FrameLayout.LayoutParams(width < 0 ? width : dp(width), height < 0 ? height : dp(height), gravity);
         p.setMargins(dp(left), dp(top), dp(right), dp(bottom)); return p;
@@ -141,16 +151,20 @@ public class MainActivity extends Activity {
         TextClock clock = new TextClock(this); clock.setFormat12Hour("HH:mm"); clock.setFormat24Hour("HH:mm"); clock.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 72 * homeScale); clock.setTextColor(Color.WHITE); clock.setShadowLayer(dp(4), dp(2), dp(2), 0x80000000);
         TextClock date = new TextClock(this); date.setFormat12Hour("yyyy年MM月dd日 EEEE"); date.setFormat24Hour("yyyy年MM月dd日 EEEE"); date.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 18 * homeScale); date.setTextColor(0xccffffff);
         clockBlock.addView(clock); clockBlock.addView(date); clockBlock.setVisibility(prefs.getBoolean("clock", true) ? View.VISIBLE : View.GONE);
-        root.addView(clockBlock, position(-2, -2, Gravity.TOP | Gravity.START, 60, 80, 0, 0));
+        root.addView(clockBlock, position(-2, -2, Gravity.TOP | Gravity.START, 270, 80, 0, 0));
 
         LinearLayout top = new LinearLayout(this); top.setGravity(Gravity.CENTER_VERTICAL); top.setPadding(dp(12), 0, dp(12), 0);
         TextClock smallClock = new TextClock(this); smallClock.setFormat12Hour("HH:mm"); smallClock.setFormat24Hour("HH:mm"); smallClock.setTextColor(INK); smallClock.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 16 * homeScale);
         top.addView(smallClock); topMusic = text("   ♫  音乐未连接", 12, INK); topMusic.setSingleLine(true); topMusic.setEllipsize(android.text.TextUtils.TruncateAt.END); top.addView(topMusic, new LinearLayout.LayoutParams(0, -2, 1));
         TextView status = text("状态栏", 12, INK); status.setOnClickListener(v -> showSettings()); top.addView(status);
         if (prefs.getBoolean("top_bar", true)) root.addView(top, position(-1, 36, Gravity.TOP, 0, 0, 0, 0));
-        speedLabel = text(speedText, 20, INK); speedLabel.setGravity(Gravity.CENTER_VERTICAL);
+        speedLabel = text(speedText, 44, INK); speedLabel.setGravity(Gravity.CENTER);
+        speedLabel.setTypeface(null, Typeface.BOLD);
+        speedLabel.setPadding(dp(12), dp(8), dp(12), dp(8));
+        speedLabel.setBackground(shape(0xddeff6fc, 16));
+        speedLabel.setText(formatSpeed(speedText));
         speedLabel.setOnClickListener(v -> requestSpeedPermission());
-        if (prefs.getBoolean("show_speed", true)) root.addView(speedLabel, position(-2, 36, Gravity.TOP | Gravity.START, 16, 40, 0, 0));
+        if (prefs.getBoolean("show_speed", true)) root.addView(speedLabel, position(220, 140, Gravity.TOP | Gravity.START, 24, 80, 0, 0));
 
         HorizontalScrollView scroll = new HorizontalScrollView(this); scroll.setHorizontalScrollBarEnabled(false);
         LinearLayout cards = new LinearLayout(this); cards.setPadding(dp(2), dp(8), dp(2), dp(8)); cards.setGravity(Gravity.CENTER_VERTICAL);
@@ -209,13 +223,17 @@ public class MainActivity extends Activity {
         LinearLayout system = new LinearLayout(this); system.setGravity(Gravity.CENTER_VERTICAL);
         String[] systemNames = {"返回", "主页", "多任务", "应用"};
         for (String name : systemNames) {
-            ImageView button = new ImageView(this); button.setImageDrawable(new NavIconDrawable(name));
-            button.setPadding(dp(12), dp(10), dp(12), dp(10)); button.setContentDescription(name);
+            FrameLayout button = new FrameLayout(this);
+            ImageView icon = new ImageView(this); icon.setImageDrawable(new NavIconDrawable(name));
+            icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            button.addView(icon, new FrameLayout.LayoutParams(dp(21), dp(21), Gravity.CENTER));
+            button.setContentDescription(name);
             button.setBackgroundResource(android.R.drawable.list_selector_background);
             button.setOnClickListener(v -> {
                 if ("应用".equals(name)) { showApps("所有应用"); return; }
                 if ("主页".equals(name)) { toast("已在桌面"); return; }
-                int action = "返回".equals(name) ? android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK : android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS;
+                if ("多任务".equals(name)) { openSystemRecents(); return; }
+                int action = android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK;
                 if (!NavigationAccessibilityService.navigate(action)) {
                     if (NavigationAccessibilityService.isConnected()) toast("当前系统不支持此导航操作");
                     else requestNavigationAccess();
@@ -229,10 +247,12 @@ public class MainActivity extends Activity {
         for (String item : climateItems) {
             View control;
             if ("风量".equals(item) || "风向".equals(item) || "循环".equals(item)) {
+                FrameLayout container = new FrameLayout(this);
                 ImageView image = new ImageView(this); image.setImageDrawable(new NavIconDrawable(item));
-                image.setPadding(dp(5), dp(10), dp(5), dp(10)); control = image;
+                image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                container.addView(image, new FrameLayout.LayoutParams(dp(20), dp(20), Gravity.CENTER)); control = container;
             } else {
-                TextView label = text(item, item.contains("°") ? 19 : 25, INK); label.setGravity(Gravity.CENTER); control = label;
+                TextView label = text(item, item.contains("°") ? 16 : 20, INK); label.setGravity(Gravity.CENTER); control = label;
             }
             control.setAlpha(.5f); control.setContentDescription("空调未连接：" + item);
             control.setOnClickListener(v -> toast("空调接口未连接；当前仅展示布局，不控制车辆"));
@@ -251,10 +271,12 @@ public class MainActivity extends Activity {
             if (target != null) try { icon = getPackageManager().getActivityIcon(target); } catch (PackageManager.NameNotFoundException ignored) { }
             if (icon != null) {
                 ImageView image = new ImageView(this); image.setImageDrawable(icon);
-                button.addView(image, new LinearLayout.LayoutParams(dp(27), dp(27)));
+                image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                button.addView(image, new LinearLayout.LayoutParams(dp(21), dp(21)));
             } else {
                 ImageView symbol = new ImageView(this); symbol.setImageDrawable(new NavIconDrawable(name));
-                button.addView(symbol, new LinearLayout.LayoutParams(dp(27), dp(27)));
+                symbol.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                button.addView(symbol, new LinearLayout.LayoutParams(dp(21), dp(21)));
             }
             button.setOnLongClickListener(v -> { configureNav(name); return true; });
             button.setOnClickListener(v -> {
@@ -280,6 +302,21 @@ public class MainActivity extends Activity {
             .setMessage("全局返回和多任务需要手动启用“CarDesk 导航按键”无障碍服务。服务不读取屏幕内容，仅执行你点击的导航操作。Home按键返回本桌面，不更改系统默认桌面。")
             .setPositiveButton("前往设置", (d, i) -> { try { startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)); } catch (ActivityNotFoundException e) { toast("系统未提供无障碍设置"); } })
             .setNegativeButton("取消", null).show();
+    }
+
+    private void openSystemRecents() {
+        if (NavigationAccessibilityService.navigate(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS)) return;
+        toast("正在通过本机ADB请求多任务…");
+        adbConnection.openRecents(prefs.getString("adb_host", "127.0.0.1"), prefs.getInt("adb_port", 5555), result -> {
+            if (isFinishing() || isDestroyed()) return;
+            if (!result.contains("CAR_DESK_RECENTS_RESULT:0")) {
+                new AlertDialog.Builder(this).setTitle("多任务请求失败")
+                    .setMessage(result.isEmpty() ? "ADB没有返回执行结果，请检查连接。" : result)
+                    .setPositiveButton("检查ADB", (d, i) -> showAdbConnection())
+                    .setNeutralButton("无障碍设置", (d, i) -> requestNavigationAccess())
+                    .setNegativeButton("关闭", null).show();
+            }
+        });
     }
 
     private List<String> navOrder() {
@@ -394,8 +431,21 @@ public class MainActivity extends Activity {
     }
     private void requestMusicAccess() {
         new AlertDialog.Builder(this).setTitle("开启音乐控制")
-            .setMessage("请在通知使用权中允许 CarDesk 音乐控制，再打开音乐应用播放一首歌曲。桌面将读取媒体会话显示歌曲、封面并控制播放；不会清除通知。")
-            .setPositiveButton("前往授权", (d, i) -> { try { startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); } catch (ActivityNotFoundException e) { toast("系统未提供通知使用权页面"); } })
+            .setMessage("车机可能不支持通知使用权设置页面。可使用已授权的本机ADB启用CarDesk通知监听，读取通知及媒体信息以显示歌曲和控制播放；不会清除通知。是否授权？")
+            .setPositiveButton("通过ADB授权", (d, i) -> {
+                toast("正在通过ADB授权…");
+                adbConnection.grantMusicAccess(prefs.getString("adb_host", "127.0.0.1"), prefs.getInt("adb_port", 5555), result -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    if (hasMusicAccess()) {
+                        android.service.notification.NotificationListenerService.requestRebind(new android.content.ComponentName(this, MusicNotificationListener.class));
+                        musicSession.start(prefs.getString("music_app", "")); updateMusic();
+                        toast("音乐权限已开启，请播放歌曲后返回桌面");
+                    } else new AlertDialog.Builder(this).setTitle("音乐授权未生效")
+                        .setMessage("系统尚未允许通知监听。\n" + (result.isEmpty() ? "命令无输出，请检查ADB连接和系统限制。" : result))
+                        .setPositiveButton("关闭", null).show();
+                });
+            })
+            .setNeutralButton("系统设置", (d, i) -> { try { startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); } catch (ActivityNotFoundException e) { toast("系统未提供通知使用权页面，请使用ADB授权"); } })
             .setNegativeButton("取消", null).show();
     }
     private void selectMusic() {
@@ -615,8 +665,9 @@ public class MainActivity extends Activity {
         panel.action("车辆只读桥接", "查看辅助进程连接与车辆接口原始数据", "查看", this::showVehicleBridge);
         panel.action("系统导航授权", "启用全局返回与系统多任务，不读取屏幕", "设置", this::requestNavigationAccess);
         panel.action("车速定位权限", "开启精确定位与GPS，点击车速也可设置", "设置", this::requestSpeedPermission);
-        panel.action("车辆车速接口检测", "先探测比亚迪只读接口，不发送车控命令", "查看", () -> new AlertDialog.Builder(this).setTitle("车速接口检测")
-            .setMessage(vehicleSpeedProbe + "\n当前使用GPS；车辆接口需真机确认单位、权限及实时性后才能启用。")
+        panel.action("车辆车速接口检测", "对比应用直读与ADB辅助进程结果", "查看", () -> new AlertDialog.Builder(this).setTitle("车速接口检测")
+            .setMessage("应用直接读取：" + vehicleSpeedProbe + "\n\nADB辅助进程：" + (vehicleBridge.data() == null ? "未收到桥接数据" : vehicleBridge.data().optString("speed_raw", vehicleBridge.data().optString("speed_raw_error", "未返回")))
+                + "\n\n当前仍使用GPS；原始值需核实单位及实时性。")
             .setPositiveButton("关闭", null).show());
         panel.action("Android 系统设置", "打开设备的系统设置页面", "打开", () -> { try { startActivity(new Intent(Settings.ACTION_SETTINGS)); } catch (ActivityNotFoundException e) { toast("系统设置不可用"); } });
         panel.show();
