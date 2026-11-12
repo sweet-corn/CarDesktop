@@ -68,6 +68,18 @@ public final class AdbConnectionManager {
     public void openRecents(String host, int port, java.util.function.Consumer<String> complete) {
         executeFixedCommand(host, port, "input keyevent 187; echo CAR_DESK_RECENTS_RESULT:$?", complete);
     }
+    public void startSplit(String host, int port, android.content.ComponentName left, android.content.ComponentName right,
+            int width, int height, int leftPercent, java.util.function.Consumer<String> complete) {
+        String a = left.flattenToString(), b = right.flattenToString();
+        if (!a.matches("[a-zA-Z0-9_.$/]+") || !b.matches("[a-zA-Z0-9_.$/]+") || width < 1 || height < 1
+                || leftPercent < 20 || leftPercent > 80) { complete.accept("分屏参数无效"); return; }
+        int divider = width * leftPercent / 100;
+        // No global force-resizable setting is changed. OEMs may ignore the requested bounds.
+        String command = "am start --windowingMode 3 --bounds 0,0," + divider + "," + height + " -n '" + a
+            + "'; echo LEFT_RESULT:$?; am start --windowingMode 4 --bounds " + divider + ",0," + width + "," + height
+            + " -n '" + b + "'; echo RIGHT_RESULT:$?";
+        executeFixedCommand(host, port, command, complete);
+    }
     private void executeFixedCommand(String host, int port, String command, java.util.function.Consumer<String> complete) {
         if (granting) { complete.accept("ADB操作正在执行，请稍候"); return; }
         granting = true;

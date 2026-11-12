@@ -22,6 +22,16 @@ public final class VehicleBridge {
     private boolean running;
     private int generation;
     private JSONObject data;
+    private long receivedAt;
+    private final Runnable expire = new Runnable() {
+        @Override public void run() {
+            if (!running) return;
+            if (data != null && android.os.SystemClock.elapsedRealtime() - receivedAt > 5000) {
+                data = null; status = "车辆数据更新超时"; updated.accept(null);
+            }
+            main.postDelayed(this, 1000);
+        }
+    };
     private String status = "未连接ADB辅助进程";
     private final Runnable poll = () -> poll();
     public VehicleBridge(Context context, Consumer<JSONObject> updated) {
@@ -38,8 +48,8 @@ public final class VehicleBridge {
     public String startCommand() {
         return "CLASSPATH=$(pm path com.cardesk.home | head -n 1 | cut -d: -f2) app_process /system/bin com.cardesk.home.VehicleBridgeMain " + token;
     }
-    public void start() { if (running) return; running = true; generation++; poll(); }
-    public void stop() { running = false; generation++; main.removeCallbacks(poll); data = null; }
+    public void start() { if (running) return; running = true; generation++; expire.run(); poll(); }
+    public void stop() { running = false; generation++; main.removeCallbacks(poll); main.removeCallbacks(expire); data = null; updated.accept(null); }
     public void close() { stop(); worker.shutdownNow(); }
     public JSONObject data() { return data; }
     public String diagnostics() { return status + "\n\n" + (data == null ? "无实时数据" : data.toString()); }
@@ -64,7 +74,7 @@ public final class VehicleBridge {
             JSONObject snapshot = result; String state = message;
             main.post(() -> {
                 if (!running || generation != request) return;
-                data = snapshot; status = state; updated.accept(data); main.postDelayed(poll, 2000);
+                data = snapshot; receivedAt = android.os.SystemClock.elapsedRealtime(); status = state; updated.accept(data); main.postDelayed(poll, 2000);
             });
         });
     }

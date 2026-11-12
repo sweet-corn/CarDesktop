@@ -86,6 +86,7 @@ public final class VehicleBridgeMain {
             read(data, "tyre_" + wheel, "tyre", "BYDAutoTyreDevice", "getTyrePressureValue", wheel);
             read(data, "tyre_signal_" + wheel, "tyre", "BYDAutoTyreDevice", "getTyreSignalState", wheel);
         }
+        read(data, "tyre_system", "tyre", "BYDAutoTyreDevice", "getTyreSystemState", null);
         read(data, "speed_raw", "speed", "BYDAutoSpeedDevice", "getCurrentSpeed", null);
         read(data, "ac_wind", "ac", "BYDAutoAcDevice", "getAcWindLevel", null);
         read(data, "ac_start", "ac", "BYDAutoAcDevice", "getAcStartState", null);
@@ -93,6 +94,7 @@ public final class VehicleBridgeMain {
         read(data, "electric_recent_raw", "statistic", "BYDAutoStatisticDevice", "getLastElecConPHMValue", null);
         read(data, "fuel_recent_raw", "statistic", "BYDAutoStatisticDevice", "getLastFuelConPHMValue", null);
         read(data, "trip_distance_raw", "instrument", "BYDAutoInstrumentDevice", "getCurrentJourneyDriveMileage", null);
+        read(data, "trip_time_raw", "instrument", "BYDAutoInstrumentDevice", "getCurrentJourneyDriveTime", null);
         return data;
     }
 }

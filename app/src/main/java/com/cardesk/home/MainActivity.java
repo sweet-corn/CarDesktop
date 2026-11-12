@@ -60,6 +60,8 @@ public class MainActivity extends Activity {
     private String speedText = "-- km/h · GPS未连接";
     private String vehicleSpeedProbe = "尚未检查";
     private VehicleBridge vehicleBridge;
+    private final TextView[] tyreReadings = new TextView[4];
+    private TextView tripDistance, tripElectric, tripFuel, vehicleDataStatus;
     private AdbConnectionManager adbConnection;
     private final android.content.BroadcastReceiver musicUpdates = new android.content.BroadcastReceiver() {
         @Override public void onReceive(android.content.Context context, Intent intent) {
@@ -72,7 +74,7 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         prefs = getSharedPreferences("settings", MODE_PRIVATE);
         musicSession = new MusicSession(this, this::updateMusic);
-        vehicleBridge = new VehicleBridge(this, snapshot -> { });
+        vehicleBridge = new VehicleBridge(this, snapshot -> updateVehicleCards());
         adbConnection = new AdbConnectionManager(this, vehicleBridge);
         speedMonitor = new SpeedMonitor(this, value -> { speedText = value; if (speedLabel != null) speedLabel.setText(formatSpeed(value)); });
         java.util.concurrent.ExecutorService probe = java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -134,6 +136,8 @@ public class MainActivity extends Activity {
     }
 
     private void buildHome() {
+        java.util.Arrays.fill(tyreReadings, null);
+        tripDistance = null; tripElectric = null; tripFuel = null; vehicleDataStatus = null;
         albumArt = null; musicAppIcon = null; musicTitle = null; playButton = null; nextButton = null;
         // Use a 1200 x 675 design canvas, independent of the phone/car density.
         android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
@@ -175,6 +179,7 @@ public class MainActivity extends Activity {
         setContentView(root);
         buildingHome = false;
         updateMusic();
+        updateVehicleCards();
     }
 
     private List<String> cardOrder() {
@@ -190,10 +195,55 @@ public class MainActivity extends Activity {
             case "导航": return navigationCard();
             case "音乐": return musicCard();
             case "车辆": return card("vehicle", "车辆", "车控尚未连接", () -> toast("车机接口尚未接入"));
-            case "行程": return card("—", "行程", "里程 / 电耗 未连接", () -> toast("行程数据尚未接入"));
-            case "胎压": return card("—", "胎压", "-- / -- kPa  未连接", () -> toast("胎压数据尚未接入"));
+            case "行程": return tripCard();
+            case "胎压": return tyreCard();
             default: return card("▦", "常用应用", "打开应用列表", () -> showApps("全部应用"));
         }
+    }
+
+    private LinearLayout dataCard(int width) {
+        LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(12), dp(7), dp(12), dp(7)); box.setBackground(shape(0xbbeef3f7, 8));
+        LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(dp(width), dp(90)); layout.setMargins(dp(4), 0, dp(4), 0); box.setLayoutParams(layout);
+        box.setOnClickListener(v -> showVehicleBridge());
+        box.setOnLongClickListener(v -> { showCardEditor(); return true; }); return box;
+    }
+    private View tyreCard() {
+        LinearLayout box = dataCard(190);
+        TextView title = text("四轮胎压 · kPa", 12, INK); box.addView(title);
+        String[] positions = {"左前", "右前", "左后", "右后"};
+        for (int row = 0; row < 2; row++) {
+            LinearLayout line = new LinearLayout(this); line.setGravity(Gravity.CENTER_VERTICAL);
+            for (int col = 0; col < 2; col++) {
+                int i = row * 2 + col;
+                TextView label = text(positions[i] + "  --", 14, INK); label.setGravity(Gravity.CENTER_VERTICAL);
+                tyreReadings[i] = label; line.addView(label, new LinearLayout.LayoutParams(0, -1, 1));
+            }
+            box.addView(line, new LinearLayout.LayoutParams(-1, 0, 1));
+        }
+        return box;
+    }
+    private View tripCard() {
+        LinearLayout box = dataCard(240);
+        LinearLayout values = new LinearLayout(this); values.setGravity(Gravity.CENTER_VERTICAL);
+        tripDistance = text("-- km", 20, INK); tripDistance.setTypeface(null, Typeface.BOLD);
+        tripElectric = text("--", 15, INK); tripElectric.setTypeface(null, Typeface.BOLD);
+        tripDistance.setSingleLine(true); tripElectric.setSingleLine(true);
+        tripElectric.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        values.addView(tripDistance, new LinearLayout.LayoutParams(0, -2, 1)); values.addView(tripElectric, new LinearLayout.LayoutParams(0, -2, 1));
+        box.addView(values);
+        tripFuel = text("最近百公里电耗 / 油耗", 10, 0xff526472); tripFuel.setSingleLine(true); box.addView(tripFuel);
+        vehicleDataStatus = text("未连接", 10, 0xff526472); vehicleDataStatus.setSingleLine(true); box.addView(vehicleDataStatus);
+        return box;
+    }
+    private void updateVehicleCards() {
+        org.json.JSONObject data = vehicleBridge.data();
+        String[] positions = {"左前", "右前", "左后", "右后"};
+        for (int i = 0; i < 4; i++) if (tyreReadings[i] != null) tyreReadings[i].setText(positions[i] + "  " + VehicleCards.pressure(data, i + 1));
+        if (tripDistance != null) tripDistance.setText(VehicleCards.number(data, "trip_distance_raw", 1000000) + " km");
+        if (tripElectric != null) tripElectric.setText(VehicleCards.number(data, "electric_recent_raw", 1000) + " kWh/100km");
+        if (tripFuel != null) tripFuel.setText("最近百公里油耗  " + VehicleCards.number(data, "fuel_recent_raw", 1000) + " L/100km");
+        if (vehicleDataStatus != null) vehicleDataStatus.setText(data == null ? "未连接 · 点击检查ADB" : "本次里程 / 最近能耗 · 点击诊断");
     }
 
     private View navigationCard() {
@@ -306,7 +356,6 @@ public class MainActivity extends Activity {
 
     private void openSystemRecents() {
         if (NavigationAccessibilityService.navigate(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS)) return;
-        toast("正在通过本机ADB请求多任务…");
         adbConnection.openRecents(prefs.getString("adb_host", "127.0.0.1"), prefs.getInt("adb_port", 5555), result -> {
             if (isFinishing() || isDestroyed()) return;
             if (!result.contains("CAR_DESK_RECENTS_RESULT:0")) {
@@ -390,14 +439,14 @@ public class MainActivity extends Activity {
     private void selectNavigation() {
         String[] packages = {"com.autonavi.amapauto", "com.autonavi.minimap", "com.baidu.BaiduMap", "com.baidu.navi", "com.tencent.map", "com.tencent.wecarnavi"};
         String[] names = {"高德地图车机版", "高德地图", "百度地图", "百度导航", "腾讯地图", "腾讯车载导航"};
-        List<String> installed = new ArrayList<>(); List<String> labels = new ArrayList<>();
+        List<ChoicePanel.Item> choices = new ArrayList<>();
         for (int i = 0; i < packages.length; i++) if (getPackageManager().getLaunchIntentForPackage(packages[i]) != null) {
-            installed.add(packages[i]); labels.add(names[i] + (packages[i].equals(prefs.getString("navigation_app", "")) ? "（默认）" : ""));
+            String name = packages[i]; Drawable icon = null;
+            try { icon = getPackageManager().getApplicationIcon(name); } catch (PackageManager.NameNotFoundException ignored) { }
+            choices.add(new ChoicePanel.Item(names[i], "", icon, name.equals(prefs.getString("navigation_app", "")),
+                () -> prefs.edit().putString("navigation_app", name).apply()));
         }
-        if (installed.isEmpty()) { toast("未找到高德、百度或腾讯地图，请先安装地图应用"); return; }
-        new AlertDialog.Builder(this).setTitle("选择默认导航应用").setItems(labels.toArray(new String[0]), (d, i) -> {
-            prefs.edit().putString("navigation_app", installed.get(i)).apply(); toast("已设为默认：" + labels.get(i));
-        }).setNegativeButton("取消", null).show();
+        ChoicePanel.show(this, "默认导航", "选择高德、百度或腾讯地图，设置自动保存", choices);
     }
 
     private View musicCard() {
@@ -449,15 +498,19 @@ public class MainActivity extends Activity {
             .setNegativeButton("取消", null).show();
     }
     private void selectMusic() {
-        List<ResolveInfo> apps = launchableApps(); List<ResolveInfo> choices = new ArrayList<>();
-        for (ResolveInfo app : apps) if (!getPackageName().equals(app.activityInfo.packageName)) choices.add(app);
-        String[] labels = new String[choices.size() + 1]; labels[0] = "自动跟随当前播放应用";
-        for (int i = 0; i < choices.size(); i++) labels[i + 1] = choices.get(i).loadLabel(getPackageManager()).toString();
-        new AlertDialog.Builder(this).setTitle("选择音乐应用（需支持媒体会话）").setItems(labels, (d, index) -> {
-            prefs.edit().putString("music_app", index == 0 ? "" : choices.get(index - 1).activityInfo.packageName).apply();
-            musicSession.start(prefs.getString("music_app", ""));
-            if (!hasMusicAccess()) requestMusicAccess();
-        }).setNegativeButton("取消", null).show();
+        List<ChoicePanel.Item> choices = new ArrayList<>(); String selected = prefs.getString("music_app", "");
+        choices.add(new ChoicePanel.Item("自动跟随当前播放", "使用当前活跃的媒体会话", null, selected.isEmpty(), () -> setMusicApp("")));
+        for (ResolveInfo app : MusicApps.find(this, launchableApps())) {
+            String name = app.activityInfo.packageName;
+            choices.add(new ChoicePanel.Item(app.loadLabel(getPackageManager()).toString(), "音乐播放器", app.loadIcon(getPackageManager()),
+                name.equals(selected), () -> setMusicApp(name)));
+        }
+        ChoicePanel.show(this, "默认音乐", "仅列出识别到的音频播放器；缺少车机播放器时可使用自动跟随", choices);
+    }
+    private void setMusicApp(String packageName) {
+        prefs.edit().putString("music_app", packageName).apply();
+        musicSession.start(packageName);
+        if (!hasMusicAccess()) requestMusicAccess();
     }
     private void openMusic() {
         String name = prefs.getString("music_app", "");
@@ -653,6 +706,7 @@ public class MainActivity extends Activity {
         panel.category("按键设置");
         panel.action("右侧功能按钮", "显示、排序并绑定应用；也可长按按键", "管理", this::editNavOrder);
         panel.category("导航与音乐");
+        panel.action("导航与音乐真实分屏", "实验：系统多窗口，需停车配置；非桌面嵌入", "设置", this::showSplitSettings);
         panel.action("默认导航应用", "选择高德、百度或腾讯地图", "选择", this::selectNavigation);
         panel.action("默认音乐应用", "指定播放器或跟随当前播放", "选择", this::selectMusic);
         panel.action("音乐通知使用权", "授权后读取与控制媒体会话", "授权", this::requestMusicAccess);
@@ -671,6 +725,40 @@ public class MainActivity extends Activity {
             .setPositiveButton("关闭", null).show());
         panel.action("Android 系统设置", "打开设备的系统设置页面", "打开", () -> { try { startActivity(new Intent(Settings.ACTION_SETTINGS)); } catch (ActivityNotFoundException e) { toast("系统设置不可用"); } });
         panel.show();
+    }
+    private void showSplitSettings() {
+        List<ChoicePanel.Item> items = new ArrayList<>();
+        String map = prefs.getString("navigation_app", ""), music = prefs.getString("music_app", "");
+        if (music.isEmpty() && musicSession.controller() != null) music = musicSession.controller().getPackageName();
+        final String player = music;
+        if (map.isEmpty()) {
+            items.add(new ChoicePanel.Item("先选择默认地图", "需指定导航应用", null, false, this::selectNavigation));
+        }
+        if (player.isEmpty()) {
+            items.add(new ChoicePanel.Item("先选择音乐播放器", "需指定音乐应用或先播放歌曲", null, false, this::selectMusic));
+        }
+        if (!map.isEmpty() && !player.isEmpty()) {
+            for (int percent : new int[]{30, 35, 50}) {
+                items.add(new ChoicePanel.Item("音乐左 / 地图右 · " + percent + "/" + (100 - percent),
+                    "系统可能忽略比例；不修改强制缩放设置", null, false, () -> launchSystemSplit(player, map, percent)));
+                items.add(new ChoicePanel.Item("地图左 / 音乐右 · " + (100 - percent) + "/" + percent,
+                    "交换左右位置", null, false, () -> launchSystemSplit(map, player, 100 - percent)));
+            }
+        }
+        ChoicePanel.show(this, "真实分屏（实验）", "仅导航和音乐。使用系统分屏，桌面底栏不会覆盖其他应用；Home可返回桌面", items);
+    }
+    private void launchSystemSplit(String left, String right, int percent) {
+        Intent a = getPackageManager().getLaunchIntentForPackage(left), b = getPackageManager().getLaunchIntentForPackage(right);
+        if (a == null || b == null || a.getComponent() == null || b.getComponent() == null) { toast("应用不可启动，请重新选择"); return; }
+        new AlertDialog.Builder(this).setTitle("启动系统分屏")
+            .setMessage("请仅在停车时配置。将启动两个真实应用，比例和触控由DiLink多窗口管理；不支持时可能只打开其中一个应用。可用系统Home或最近任务退出分屏。")
+            .setPositiveButton("启动", (d, i) -> adbConnection.startSplit(prefs.getString("adb_host", "127.0.0.1"), prefs.getInt("adb_port", 5555),
+                a.getComponent(), b.getComponent(), getResources().getDisplayMetrics().widthPixels, getResources().getDisplayMetrics().heightPixels, percent, result -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    if (!result.contains("LEFT_RESULT:0") || !result.contains("RIGHT_RESULT:0") || result.contains("Error") || result.contains("Exception"))
+                        new AlertDialog.Builder(this).setTitle("系统分屏返回结果").setMessage(result.isEmpty() ? "未收到结果" : result).setPositiveButton("关闭", null).show();
+                }))
+            .setNegativeButton("取消", null).show();
     }
     private void showVehicleBridge() {
         new AlertDialog.Builder(this).setTitle("车辆只读桥接（实验）")
