@@ -57,6 +57,9 @@ public class MainActivity extends Activity {
     private TextView topMusic;
     private boolean musicAuthorizationPending;
     private boolean musicAutoAuthorizationAttempted;
+    private Boolean pendingMusicCommand;
+    private int musicCommandGeneration;
+    private final android.os.Handler musicHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private TextView speedLabel;
     private SpeedMonitor speedMonitor;
     private String speedText = "-- km/h · GPS未连接";
@@ -490,10 +493,14 @@ public class MainActivity extends Activity {
                         android.service.notification.NotificationListenerService.requestRebind(new android.content.ComponentName(this, MusicNotificationListener.class));
                         if (active) musicSession.start(prefs.getString("music_app", ""));
                         updateMusic();
-                    } else new AlertDialog.Builder(this).setTitle("音乐授权未生效")
+                        if (active && pendingMusicCommand != null) awaitMusicController(pendingMusicCommand, musicCommandGeneration, 0);
+                    } else {
+                        pendingMusicCommand = null;
+                        new AlertDialog.Builder(this).setTitle("音乐授权未生效")
                         .setMessage("系统尚未允许通知监听。\n" + (result.isEmpty() ? "命令无输出，请检查ADB连接和系统限制。" : result))
                         .setPositiveButton("关闭", null)
                         .setNeutralButton("检查ADB", (d, i) -> showAdbConnection()).show();
+                    }
                  });
     }
     private void selectMusic() {
@@ -518,10 +525,34 @@ public class MainActivity extends Activity {
         if (name.isEmpty()) selectMusic(); else launch(name);
     }
     private void controlMusic(boolean next) {
+        int request = ++musicCommandGeneration;
+        pendingMusicCommand = next;
         if (!hasMusicAccess()) { requestMusicAccess(); return; }
+        musicSession.start(prefs.getString("music_app", ""));
+        awaitMusicController(next, request, 0);
+    }
+    private void awaitMusicController(boolean next, int request, int attempt) {
+        if (!active || request != musicCommandGeneration) return;
+        if (musicSession.controller() != null) {
+            pendingMusicCommand = null; sendMusicCommand(next, request); return;
+        }
+        if (attempt >= 8) {
+            pendingMusicCommand = null;
+            toast("未找到所选播放器的媒体会话，请先播放歌曲或切换为自动跟随");
+            return;
+        }
+        musicHandler.postDelayed(() -> {
+            if (!active || request != musicCommandGeneration) return;
+            musicSession.start(prefs.getString("music_app", ""));
+            awaitMusicController(next, request, attempt + 1);
+        }, 400);
+    }
+    private void sendMusicCommand(boolean next, int request) {
         android.media.session.MediaController controller = musicSession.controller();
-        if (controller == null) { toast("请先在音乐应用播放一首歌曲，再返回桌面"); openMusic(); return; }
+        if (controller == null) { toast("音乐会话已断开，请重新播放歌曲"); return; }
         android.media.session.PlaybackState state = controller.getPlaybackState();
+        if (state == null) { toast("播放器未提供播放状态，请重新播放歌曲"); return; }
+        String oldTrack = controller.getMetadata() == null ? null : controller.getMetadata().getString(android.media.MediaMetadata.METADATA_KEY_TITLE);
         boolean playing = state != null && state.getState() == android.media.session.PlaybackState.STATE_PLAYING;
         long action = next ? android.media.session.PlaybackState.ACTION_SKIP_TO_NEXT : playing ? android.media.session.PlaybackState.ACTION_PAUSE : android.media.session.PlaybackState.ACTION_PLAY;
         try {
@@ -532,6 +563,14 @@ public class MainActivity extends Activity {
             }
             else if (playing) controller.getTransportControls().pause();
             else controller.getTransportControls().play();
+            musicHandler.postDelayed(() -> {
+                if (!active || request != musicCommandGeneration) return;
+                android.media.session.PlaybackState now = controller.getPlaybackState();
+                String track = controller.getMetadata() == null ? null : controller.getMetadata().getString(android.media.MediaMetadata.METADATA_KEY_TITLE);
+                boolean changed = next ? !java.util.Objects.equals(oldTrack, track)
+                    : now != null && (now.getState() == android.media.session.PlaybackState.STATE_PLAYING) != playing;
+                if (!changed) toast("播放器未反馈操作结果，请在音乐连接诊断中检查会话");
+            }, 2500);
         } catch (RuntimeException e) { toast("音乐控制失败，请重新打开音乐应用"); }
     }
     private void updateMusic() {
@@ -626,6 +665,7 @@ public class MainActivity extends Activity {
     }
     @Override protected void onPause() {
         active = false;
+        pendingMusicCommand = null; musicCommandGeneration++; musicHandler.removeCallbacksAndMessages(null);
         if (musicReceiverRegistered) { unregisterReceiver(musicUpdates); musicReceiverRegistered = false; }
         musicSession.stop(); if (videoWallpaper != null) videoWallpaper.pause(); super.onPause();
         vehicleBridge.stop();
