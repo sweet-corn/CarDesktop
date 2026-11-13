@@ -48,6 +48,7 @@ public final class VehicleBridge {
     public String startCommand() {
         return "CLASSPATH=$(pm path com.cardesk.home | head -n 1 | cut -d: -f2) app_process /system/bin com.cardesk.home.VehicleBridgeMain " + token;
     }
+    public String redact(String value) { return value.replace(token, "[令牌已隐藏]"); }
     public void start() { if (running) return; running = true; generation++; expire.run(); poll(); }
     public void stop() { running = false; generation++; main.removeCallbacks(poll); main.removeCallbacks(expire); data = null; updated.accept(null); }
     public void close() { stop(); worker.shutdownNow(); }
@@ -70,7 +71,7 @@ public final class VehicleBridge {
                 long age = android.os.SystemClock.elapsedRealtime() - result.getLong("elapsed");
                 if (result.getInt("protocol") != 1 || age < 0 || age > 5000) throw new java.io.IOException("Stale response");
                 message = "ADB辅助进程已连接（只读）";
-            } catch (Exception error) { result = null; message = "辅助进程未连接：" + error.getClass().getSimpleName(); }
+            } catch (Exception error) { result = null; message = "辅助进程未连接：" + error.getClass().getSimpleName() + " · " + redact(String.valueOf(error.getMessage())); }
             JSONObject snapshot = result; String state = message;
             main.post(() -> {
                 if (!running || generation != request) return;

@@ -18,6 +18,8 @@ public final class AdbConnectionManager {
     private boolean granting;
     private int generation;
     private String state = "未连接";
+    private String bridgeOutput = "尚无启动输出";
+    public String diagnostics() { return state + "\n\n辅助进程输出：\n" + bridgeOutput; }
     private Runnable observer = () -> { };
     public AdbConnectionManager(Context context, VehicleBridge bridge) { this.context = context.getApplicationContext(); this.bridge = bridge; }
     public String state() { return state; }
@@ -42,8 +44,12 @@ public final class AdbConnectionManager {
                     observer.run();
                 }, 8000);
                 StringBuilder output = new StringBuilder();
-                current.shell(bridge.startCommand(), chunk -> {
-                    if (output.length() < 2048) output.append(chunk, 0, Math.min(chunk.length(), 2048 - output.length()));
+                current.shell(bridge.startCommand() + " 2>&1; echo BRIDGE_EXIT:$?", chunk -> {
+                    String safe = bridge.redact(chunk);
+                    output.append(safe);
+                    if (output.length() > 6000) output.delete(0, output.length() - 6000);
+                    String report = bridge.redact(output.toString());
+                    main.post(() -> { if (generation == request) { bridgeOutput = report; observer.run(); } });
                 });
                 update(request, "ADB shell已退出；辅助进程可能到期或启动失败。请查看桥接诊断和设备日志。 ");
             } catch (java.net.SocketTimeoutException e) { update(request, "ADB连接或授权超时；请检查端口并确认授权弹窗"); }
@@ -73,11 +79,10 @@ public final class AdbConnectionManager {
         String a = left.flattenToString(), b = right.flattenToString();
         if (!a.matches("[a-zA-Z0-9_.$/]+") || !b.matches("[a-zA-Z0-9_.$/]+") || width < 1 || height < 1
                 || leftPercent < 20 || leftPercent > 80) { complete.accept("分屏参数无效"); return; }
-        int divider = width * leftPercent / 100;
-        // No global force-resizable setting is changed. OEMs may ignore the requested bounds.
-        String command = "am start --windowingMode 3 --bounds 0,0," + divider + "," + height + " -n '" + a
-            + "'; echo LEFT_RESULT:$?; am start --windowingMode 4 --bounds " + divider + ",0," + width + "," + height
-            + " -n '" + b + "'; echo RIGHT_RESULT:$?";
+        // Android 10 am start has no --bounds option. Ratio is controlled by SystemUI.
+        String command = "am start --windowingMode 3 -n '" + a
+            + "'; r=$?; echo LEFT_RESULT:$r; if [ $r -eq 0 ]; then am start --windowingMode 4 -n '" + b
+            + "'; echo RIGHT_RESULT:$?; else echo RIGHT_SKIPPED; fi";
         executeFixedCommand(host, port, command, complete);
     }
     private void executeFixedCommand(String host, int port, String command, java.util.function.Consumer<String> complete) {

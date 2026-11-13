@@ -19,16 +19,23 @@ public final class VehicleBridgeMain {
     private VehicleBridgeMain(Context context) { this.context = context; }
 
     public static void main(String[] args) throws Exception {
-        if (android.os.Process.myUid() != 2000 || args.length != 1 || !args[0].matches("[a-f0-9]{64}")) return;
+        if (android.os.Process.myUid() != 2000 || args.length != 1 || !args[0].matches("[a-f0-9]{64}")) {
+            System.out.println("BRIDGE_REJECTED: uid=" + android.os.Process.myUid()); return;
+        }
+        System.out.println("BRIDGE_START: shell uid=2000");
         Thread.setDefaultUncaughtExceptionHandler((thread, error) -> {
-            android.util.Log.e("CarDeskBridge", "Bridge failed", error); System.exit(1);
+            android.util.Log.e("CarDeskBridge", "Bridge failed", error);
+            System.out.println("BRIDGE_FATAL: " + error.getClass().getSimpleName() + ": " + error.getMessage());
+            System.exit(1);
         });
         Looper.prepareMainLooper();
         Class<?> thread = Class.forName("android.app.ActivityThread");
         Object instance = thread.getMethod("systemMain").invoke(null);
         Context context = (Context) thread.getMethod("getSystemContext").invoke(instance);
+        System.out.println("BRIDGE_CONTEXT_READY");
         VehicleBridgeMain bridge = new VehicleBridgeMain(context);
         LocalServerSocket server = new LocalServerSocket(SOCKET);
+        System.out.println("BRIDGE_SOCKET_READY");
         // Bound process lifetime: restart explicitly instead of leaving a permanent shell daemon.
         Thread lifetime = new Thread(() -> {
             try { Thread.sleep(30 * 60 * 1000L); } catch (InterruptedException ignored) { }
@@ -51,7 +58,10 @@ public final class VehicleBridgeMain {
                 if (!tokenValue.equals(token)) continue;
                 PrintWriter output = new PrintWriter(socket.getOutputStream());
                 output.println(bridge.snapshot().toString()); output.flush();
-            } catch (Exception error) { android.util.Log.w("CarDeskBridge", "Read failed", error); }
+            } catch (Exception error) {
+                android.util.Log.w("CarDeskBridge", "Read failed", error);
+                System.out.println("BRIDGE_READ_FAILED: " + error.getClass().getSimpleName() + ": " + error.getMessage());
+            }
         }
     }
     private static String readBounded(BufferedReader input) throws Exception {

@@ -20,13 +20,14 @@ final class MusicApps {
         for (ResolveInfo service : services) if (service.serviceInfo != null) packages.add(service.serviceInfo.packageName);
         String[] known = {"com.netease.cloudmusic", "com.netease.cloudmusic.car",
             "com.tencent.qqmusic", "com.tencent.qqmusiccar", "com.tencent.qqmusiccar2", "com.kugou.android", "com.kugou.android.auto",
-            "cn.kuwo.player", "cn.kuwo.kwmusiccar", "com.spotify.music", "com.apple.android.music", "com.maxmpz.audioplayer", "com.byd.music"};
+            "cn.kuwo.player", "cn.kuwo.kwmusiccar", "cn.kuwo.kwmusiccaz", "com.spotify.music", "com.apple.android.music", "com.maxmpz.audioplayer", "com.byd.music"};
         java.util.Collections.addAll(packages, known);
         Set<String> seen = new HashSet<>(); List<ResolveInfo> result = new ArrayList<>();
         for (ResolveInfo app : launchers) {
             String name = app.activityInfo.packageName; ApplicationInfo info = app.activityInfo.applicationInfo;
             if (context.getPackageName().equals(name) || !seen.add(name)) continue;
-            if (packages.contains(name) || (android.os.Build.VERSION.SDK_INT >= 26 && info.category == ApplicationInfo.CATEGORY_AUDIO)) result.add(app);
+            if (name.startsWith("cn.kuwo.") || packages.contains(name)
+                    || (android.os.Build.VERSION.SDK_INT >= 26 && info.category == ApplicationInfo.CATEGORY_AUDIO)) result.add(app);
         }
         return result;
     }

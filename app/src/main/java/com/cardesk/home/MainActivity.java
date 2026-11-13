@@ -55,6 +55,8 @@ public class MainActivity extends Activity {
     private TextView playButton;
     private TextView nextButton;
     private TextView topMusic;
+    private boolean musicAuthorizationPending;
+    private boolean musicAutoAuthorizationAttempted;
     private TextView speedLabel;
     private SpeedMonitor speedMonitor;
     private String speedText = "-- km/h · GPS未连接";
@@ -479,23 +481,20 @@ public class MainActivity extends Activity {
         return false;
     }
     private void requestMusicAccess() {
-        new AlertDialog.Builder(this).setTitle("开启音乐控制")
-            .setMessage("车机可能不支持通知使用权设置页面。可使用已授权的本机ADB启用CarDesk通知监听，读取通知及媒体信息以显示歌曲和控制播放；不会清除通知。是否授权？")
-            .setPositiveButton("通过ADB授权", (d, i) -> {
-                toast("正在通过ADB授权…");
-                adbConnection.grantMusicAccess(prefs.getString("adb_host", "127.0.0.1"), prefs.getInt("adb_port", 5555), result -> {
+        if (hasMusicAccess() || musicAuthorizationPending) return;
+        musicAuthorizationPending = true;
+        adbConnection.grantMusicAccess(prefs.getString("adb_host", "127.0.0.1"), prefs.getInt("adb_port", 5555), result -> {
+                    musicAuthorizationPending = false;
                     if (isFinishing() || isDestroyed()) return;
                     if (hasMusicAccess()) {
                         android.service.notification.NotificationListenerService.requestRebind(new android.content.ComponentName(this, MusicNotificationListener.class));
-                        musicSession.start(prefs.getString("music_app", "")); updateMusic();
-                        toast("音乐权限已开启，请播放歌曲后返回桌面");
+                        if (active) musicSession.start(prefs.getString("music_app", ""));
+                        updateMusic();
                     } else new AlertDialog.Builder(this).setTitle("音乐授权未生效")
                         .setMessage("系统尚未允许通知监听。\n" + (result.isEmpty() ? "命令无输出，请检查ADB连接和系统限制。" : result))
-                        .setPositiveButton("关闭", null).show();
-                });
-            })
-            .setNeutralButton("系统设置", (d, i) -> { try { startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); } catch (ActivityNotFoundException e) { toast("系统未提供通知使用权页面，请使用ADB授权"); } })
-            .setNegativeButton("取消", null).show();
+                        .setPositiveButton("关闭", null)
+                        .setNeutralButton("检查ADB", (d, i) -> showAdbConnection()).show();
+                 });
     }
     private void selectMusic() {
         List<ChoicePanel.Item> choices = new ArrayList<>(); String selected = prefs.getString("music_app", "");
@@ -611,6 +610,10 @@ public class MainActivity extends Activity {
     }
     @Override protected void onResume() {
         super.onResume(); active = true;
+        if (!musicAutoAuthorizationAttempted && prefs.getBoolean("adb_auto", true)) {
+            musicAutoAuthorizationAttempted = true;
+            if (!hasMusicAccess()) requestMusicAccess();
+        }
         Intent filterIntent = new Intent(MusicNotificationListener.ACTION_CHANGED);
         android.content.IntentFilter filter = new android.content.IntentFilter(filterIntent.getAction());
         if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(musicUpdates, filter, android.content.Context.RECEIVER_NOT_EXPORTED);
@@ -709,7 +712,7 @@ public class MainActivity extends Activity {
         panel.action("导航与音乐真实分屏", "实验：系统多窗口，需停车配置；非桌面嵌入", "设置", this::showSplitSettings);
         panel.action("默认导航应用", "选择高德、百度或腾讯地图", "选择", this::selectNavigation);
         panel.action("默认音乐应用", "指定播放器或跟随当前播放", "选择", this::selectMusic);
-        panel.action("音乐通知使用权", "授权后读取与控制媒体会话", "授权", this::requestMusicAccess);
+        panel.action("音乐通知使用权", "自动ADB授权；可访问通知和媒体信息，不清除通知", "授权", this::requestMusicAccess);
         panel.action("音乐连接诊断", "检查权限和当前媒体会话", "查看", () -> new AlertDialog.Builder(new android.view.ContextThemeWrapper(this, android.R.style.Theme_Material_Light_Dialog_Alert)).setTitle("音乐连接诊断")
             .setMessage("通知使用权：" + (hasMusicAccess() ? "已开启" : "未开启") + "\n" + musicSession.diagnostics())
             .setPositiveButton("关闭", null).show());
@@ -738,12 +741,8 @@ public class MainActivity extends Activity {
             items.add(new ChoicePanel.Item("先选择音乐播放器", "需指定音乐应用或先播放歌曲", null, false, this::selectMusic));
         }
         if (!map.isEmpty() && !player.isEmpty()) {
-            for (int percent : new int[]{30, 35, 50}) {
-                items.add(new ChoicePanel.Item("音乐左 / 地图右 · " + percent + "/" + (100 - percent),
-                    "系统可能忽略比例；不修改强制缩放设置", null, false, () -> launchSystemSplit(player, map, percent)));
-                items.add(new ChoicePanel.Item("地图左 / 音乐右 · " + (100 - percent) + "/" + percent,
-                    "交换左右位置", null, false, () -> launchSystemSplit(map, player, 100 - percent)));
-            }
+            items.add(new ChoicePanel.Item("音乐左 / 地图右", "比例由系统决定，暂不支持指定", null, false, () -> launchSystemSplit(player, map, 50)));
+            items.add(new ChoicePanel.Item("地图左 / 音乐右", "比例由系统决定，暂不支持指定", null, false, () -> launchSystemSplit(map, player, 50)));
         }
         ChoicePanel.show(this, "真实分屏（实验）", "仅导航和音乐。使用系统分屏，桌面底栏不会覆盖其他应用；Home可返回桌面", items);
     }
@@ -762,7 +761,7 @@ public class MainActivity extends Activity {
     }
     private void showVehicleBridge() {
         new AlertDialog.Builder(this).setTitle("车辆只读桥接（实验）")
-            .setMessage(vehicleBridge.diagnostics() + "\n\n通过应用内无线ADB启动，无需电脑命令。桥接运行30分钟后退出，需手动重新连接。接口数据为未确认单位的原始值，不用于仪表或车控。")
+            .setMessage(vehicleBridge.diagnostics() + "\n\nADB状态与启动输出：\n" + adbConnection.diagnostics() + "\n\n桥接运行30分钟后退出，需手动重新连接。接口数据为未确认单位的原始值，不用于仪表或车控。")
             .setPositiveButton("无线ADB", (dialog, which) -> showAdbConnection())
             .setNeutralButton("刷新", (dialog, which) -> showVehicleBridge())
             .setNegativeButton("关闭", null).show();
