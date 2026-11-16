@@ -12,7 +12,8 @@ final class VehicleCards {
         return Double.isFinite(value) && value >= 0 && value <= max ? String.format(Locale.getDefault(), "%.1f", value) : "--";
     }
     static String pressure(JSONObject data, int wheel) {
-        if (data == null || data.optInt("tyre_system", -1) != 0 || data.optInt("tyre_signal_" + wheel, -1) != 0
+        if (data == null || (data.has("tyre_system") && data.optInt("tyre_system", -1) != 0)
+                || (data.has("tyre_signal_" + wheel) && data.optInt("tyre_signal_" + wheel, -1) != 0)
                 || !(data.opt("tyre_" + wheel) instanceof Number)) return "--";
         double value = ((Number) data.opt("tyre_" + wheel)).doubleValue();
         // BYD SDK reserves 4095; zero/no signal is not a measured tire pressure.

@@ -62,7 +62,7 @@ public final class VehicleBridge {
             try (LocalSocket socket = new LocalSocket()) {
                 socket.connect(new LocalSocketAddress(VehicleBridgeMain.SOCKET)); socket.setSoTimeout(2500);
                 if (socket.getPeerCredentials().getUid() != 2000) throw new SecurityException("Unexpected bridge UID");
-                socket.getOutputStream().write((token + "\n").getBytes("UTF-8")); socket.getOutputStream().flush();
+                socket.getOutputStream().write((token + "\nsnapshot\n").getBytes("UTF-8")); socket.getOutputStream().flush();
                 ByteArrayOutputStream response = new ByteArrayOutputStream(); int ch;
                 while ((ch = socket.getInputStream().read()) != -1 && ch != '\n') {
                     if (response.size() >= 32768) throw new java.io.IOException("Oversized response"); response.write(ch);
@@ -77,6 +77,25 @@ public final class VehicleBridge {
                 if (!running || generation != request) return;
                 data = snapshot; receivedAt = android.os.SystemClock.elapsedRealtime(); status = state; updated.accept(data); main.postDelayed(poll, 2000);
             });
+        });
+    }
+    public void control(String command, Consumer<JSONObject> completed) {
+        if (!running || data == null) { completed.accept(new JSONObject()); return; }
+        worker.execute(() -> {
+            JSONObject result;
+            try (LocalSocket socket = new LocalSocket()) {
+                socket.connect(new LocalSocketAddress(VehicleBridgeMain.SOCKET)); socket.setSoTimeout(2500);
+                if (socket.getPeerCredentials().getUid() != 2000) throw new SecurityException("Unexpected bridge UID");
+                socket.getOutputStream().write((token + "\n" + command + "\n").getBytes("UTF-8")); socket.getOutputStream().flush();
+                ByteArrayOutputStream bytes = new ByteArrayOutputStream(); int ch;
+                while ((ch = socket.getInputStream().read()) != -1 && ch != '\n') {
+                    if (bytes.size() > 8192) throw new java.io.IOException("Oversized response"); bytes.write(ch);
+                }
+                result = new JSONObject(bytes.toString("UTF-8"));
+            } catch (Exception error) {
+                result = new JSONObject(); try { result.put("error", error.getClass().getSimpleName() + ": " + error.getMessage()); } catch (Exception ignored) { }
+            }
+            JSONObject response = result; main.post(() -> completed.accept(response));
         });
     }
 }

@@ -13,8 +13,9 @@ import java.util.Map;
 
 /** Read-only shell entry point launched explicitly with adb/app_process. No exported car commands. */
 public final class VehicleBridgeMain {
-    static final String SOCKET = "com.cardesk.home.vehicle.v1";
+    static final String SOCKET = "com.cardesk.home.vehicle.v2";
     private final Context context;
+    private final android.os.Handler sdkHandler = new android.os.Handler(Looper.getMainLooper());
     private final Map<String, Object> devices = new HashMap<>();
     private VehicleBridgeMain(Context context) { this.context = context; }
 
@@ -56,8 +57,20 @@ public final class VehicleBridgeMain {
                 BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
                 String token = readBounded(input);
                 if (!tokenValue.equals(token)) continue;
+                String command = readBounded(input);
                 PrintWriter output = new PrintWriter(socket.getOutputStream());
-                output.println(bridge.snapshot().toString()); output.flush();
+                java.util.concurrent.FutureTask<JSONObject> sample = new java.util.concurrent.FutureTask<>(() -> {
+                    if ("snapshot".equals(command)) return bridge.snapshot();
+                    return bridge.control(command);
+                });
+                // Vendor SDKs commonly create Handlers during getInstance; initialize on a Looper thread.
+                bridge.sdkHandler.post(sample);
+                try {
+                    output.println(sample.get(1800, java.util.concurrent.TimeUnit.MILLISECONDS).toString()); output.flush();
+                } catch (java.util.concurrent.TimeoutException timeout) {
+                    sample.cancel(false); bridge.sdkHandler.removeCallbacks(sample);
+                    throw timeout;
+                }
             } catch (Exception error) {
                 android.util.Log.w("CarDeskBridge", "Read failed", error);
                 System.out.println("BRIDGE_READ_FAILED: " + error.getClass().getSimpleName() + ": " + error.getMessage());
@@ -87,7 +100,7 @@ public final class VehicleBridgeMain {
             result.put(key, value);
         } catch (Exception | LinkageError error) {
             Throwable cause = error.getCause() == null ? error : error.getCause();
-            try { result.put(key + "_error", cause.getClass().getSimpleName()); } catch (Exception ignored) { }
+            try { result.put(key + "_error", cause.getClass().getSimpleName() + ": " + String.valueOf(cause.getMessage())); } catch (Exception ignored) { }
         }
     }
     private JSONObject snapshot() throws Exception {
@@ -101,10 +114,33 @@ public final class VehicleBridgeMain {
         read(data, "ac_wind", "ac", "BYDAutoAcDevice", "getAcWindLevel", null);
         read(data, "ac_start", "ac", "BYDAutoAcDevice", "getAcStartState", null);
         read(data, "ac_cycle", "ac", "BYDAutoAcDevice", "getAcCycleMode", null);
+        read(data, "ac_temp_1", "ac", "BYDAutoAcDevice", "getTemprature", 1);
+        read(data, "ac_temp_2", "ac", "BYDAutoAcDevice", "getTemprature", 2);
         read(data, "electric_recent_raw", "statistic", "BYDAutoStatisticDevice", "getLastElecConPHMValue", null);
         read(data, "fuel_recent_raw", "statistic", "BYDAutoStatisticDevice", "getLastFuelConPHMValue", null);
         read(data, "trip_distance_raw", "instrument", "BYDAutoInstrumentDevice", "getCurrentJourneyDriveMileage", null);
         read(data, "trip_time_raw", "instrument", "BYDAutoInstrumentDevice", "getCurrentJourneyDriveTime", null);
         return data;
+    }
+    private JSONObject control(String command) throws Exception {
+        JSONObject result = new JSONObject();
+        // Closed command vocabulary: no arbitrary reflection from IPC input.
+        String[] parts = command.split(":");
+        try {
+            Class<?> type = Class.forName("android.hardware.bydauto.ac.BYDAutoAcDevice");
+            Object device = type.getMethod("getInstance", Context.class).invoke(null, context);
+            int code;
+            if (parts.length == 2 && "power".equals(parts[0]) && ("0".equals(parts[1]) || "1".equals(parts[1]))) {
+                code = ((Number) type.getMethod("1".equals(parts[1]) ? "start" : "stop", int.class).invoke(device, 0)).intValue();
+            } else if (parts.length == 2 && "wind".equals(parts[0])) {
+                int level = Integer.parseInt(parts[1]); if (level < 1 || level > 7) throw new IllegalArgumentException("风量范围1–7");
+                code = ((Number) type.getMethod("setAcWindLevel", int.class, int.class).invoke(device, 0, level)).intValue();
+            } else throw new IllegalArgumentException("不支持的命令");
+            result.put("code", code); result.put("accepted", code == 0);
+        } catch (Exception error) {
+            Throwable cause = error.getCause() == null ? error : error.getCause();
+            result.put("accepted", false); result.put("error", cause.getClass().getSimpleName() + ": " + cause.getMessage());
+        }
+        return result;
     }
 }

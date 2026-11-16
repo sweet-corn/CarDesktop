@@ -310,7 +310,7 @@ public class MainActivity extends Activity {
                 TextView label = text(item, item.contains("°") ? 16 : 20, INK); label.setGravity(Gravity.CENTER); control = label;
             }
             control.setAlpha(.5f); control.setContentDescription("空调未连接：" + item);
-            control.setOnClickListener(v -> toast("空调接口未连接；当前仅展示布局，不控制车辆"));
+            control.setOnClickListener(v -> showClimateControls());
             climate.addView(control, new LinearLayout.LayoutParams(0, -1, item.contains("°") ? 1.5f : 1f));
         }
         bar.addView(climate, new LinearLayout.LayoutParams(0, -1, .52f));
@@ -357,6 +357,28 @@ public class MainActivity extends Activity {
             .setMessage("全局返回和多任务需要手动启用“CarDesk 导航按键”无障碍服务。服务不读取屏幕内容，仅执行你点击的导航操作。Home按键返回本桌面，不更改系统默认桌面。")
             .setPositiveButton("前往设置", (d, i) -> { try { startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)); } catch (ActivityNotFoundException e) { toast("系统未提供无障碍设置"); } })
             .setNegativeButton("取消", null).show();
+    }
+    private void showClimateControls() {
+        org.json.JSONObject data = vehicleBridge.data();
+        if (data == null) { showVehicleBridge(); return; }
+        List<ChoicePanel.Item> items = new ArrayList<>();
+        items.add(new ChoicePanel.Item("开启空调", "仅停车测试；请求后核对原车状态", null, false, () -> sendClimateCommand("power:1")));
+        items.add(new ChoicePanel.Item("关闭空调", "不会自动重试控制指令", null, false, () -> sendClimateCommand("power:0")));
+        for (int level = 1; level <= 7; level++) {
+            final int value = level;
+            items.add(new ChoicePanel.Item("风量 " + level, "参考APK参数，尚待车型验证", null, data.optInt("ac_wind", -1) == level,
+                () -> sendClimateCommand("wind:" + value)));
+        }
+        ChoicePanel.show(this, "空调控制（实验）", "主驾原始温度：" + data.optString("ac_temp_1", "--") + " · 副驾：" + data.optString("ac_temp_2", "--"), items);
+    }
+    private void sendClimateCommand(String command) {
+        new AlertDialog.Builder(this).setTitle("确认空调操作")
+            .setMessage("请停车测试。将向车辆发送一次空调控制请求；返回成功也需核对原车实际状态。")
+            .setPositiveButton("执行", (d, i) -> vehicleBridge.control(command, result -> {
+                if (isFinishing() || isDestroyed()) return;
+                if (!result.optBoolean("accepted", false)) toast("空调请求失败：" + result.optString("error", "返回码 " + result.optString("code", "无响应")));
+                else toast("车辆接口已接受请求，请核对原车状态");
+            })).setNegativeButton("取消", null).show();
     }
 
     private void openSystemRecents() {
