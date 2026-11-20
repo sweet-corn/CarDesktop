@@ -68,6 +68,8 @@ public class MainActivity extends Activity {
     private final TextView[] tyreReadings = new TextView[4];
     private TextView tripDistance, tripElectric, tripFuel, vehicleDataStatus;
     private AdbConnectionManager adbConnection;
+    private EmbeddedMapView embeddedMap;
+    private TextView climateStatus;
     private final android.content.BroadcastReceiver musicUpdates = new android.content.BroadcastReceiver() {
         @Override public void onReceive(android.content.Context context, Intent intent) {
             if (active && musicSession != null) musicSession.refresh();
@@ -79,7 +81,7 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         prefs = getSharedPreferences("settings", MODE_PRIVATE);
         musicSession = new MusicSession(this, this::updateMusic);
-        vehicleBridge = new VehicleBridge(this, snapshot -> updateVehicleCards());
+        vehicleBridge = new VehicleBridge(this::updateVehicleCards);
         adbConnection = new AdbConnectionManager(this, vehicleBridge);
         speedMonitor = new SpeedMonitor(this, value -> { speedText = value; if (speedLabel != null) speedLabel.setText(formatSpeed(value)); });
         java.util.concurrent.ExecutorService probe = java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -141,6 +143,7 @@ public class MainActivity extends Activity {
     }
 
     private void buildHome() {
+        climateStatus = null;
         java.util.Arrays.fill(tyreReadings, null);
         tripDistance = null; tripElectric = null; tripFuel = null; vehicleDataStatus = null;
         albumArt = null; musicAppIcon = null; musicTitle = null; playButton = null; nextButton = null;
@@ -230,14 +233,9 @@ public class MainActivity extends Activity {
     }
     private View tripCard() {
         LinearLayout box = dataCard(240);
-        LinearLayout values = new LinearLayout(this); values.setGravity(Gravity.CENTER_VERTICAL);
-        tripDistance = text("-- km", 20, INK); tripDistance.setTypeface(null, Typeface.BOLD);
-        tripElectric = text("--", 15, INK); tripElectric.setTypeface(null, Typeface.BOLD);
-        tripDistance.setSingleLine(true); tripElectric.setSingleLine(true);
-        tripElectric.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        values.addView(tripDistance, new LinearLayout.LayoutParams(0, -2, 1)); values.addView(tripElectric, new LinearLayout.LayoutParams(0, -2, 1));
-        box.addView(values);
-        tripFuel = text("最近百公里电耗 / 油耗", 10, 0xff526472); tripFuel.setSingleLine(true); box.addView(tripFuel);
+        tripDistance = text("本次里程  -- km", 13, INK); box.addView(tripDistance);
+        tripElectric = text("最近电耗  -- kWh/100km", 13, INK); box.addView(tripElectric);
+        tripFuel = text("最近油耗  -- L/100km", 13, INK); box.addView(tripFuel);
         vehicleDataStatus = text("未连接", 10, 0xff526472); vehicleDataStatus.setSingleLine(true); box.addView(vehicleDataStatus);
         return box;
     }
@@ -245,10 +243,15 @@ public class MainActivity extends Activity {
         org.json.JSONObject data = vehicleBridge.data();
         String[] positions = {"左前", "右前", "左后", "右后"};
         for (int i = 0; i < 4; i++) if (tyreReadings[i] != null) tyreReadings[i].setText(positions[i] + "  " + VehicleCards.pressure(data, i + 1));
-        if (tripDistance != null) tripDistance.setText(VehicleCards.number(data, "trip_distance_raw", 1000000) + " km");
-        if (tripElectric != null) tripElectric.setText(VehicleCards.number(data, "electric_recent_raw", 1000) + " kWh/100km");
-        if (tripFuel != null) tripFuel.setText("最近百公里油耗  " + VehicleCards.number(data, "fuel_recent_raw", 1000) + " L/100km");
-        if (vehicleDataStatus != null) vehicleDataStatus.setText(data == null ? "未连接 · 点击检查ADB" : "本次里程 / 最近能耗 · 点击诊断");
+        String distance = VehicleCards.number(data, "trip_distance_raw", 0, 10000);
+        String electric = VehicleCards.number(data, "electric_recent_raw", -99.9, 99.9);
+        String fuel = VehicleCards.number(data, "fuel_recent_raw", 0, 51.1);
+        if (tripDistance != null) tripDistance.setText("本次里程  " + distance + " km");
+        if (tripElectric != null) tripElectric.setText("最近电耗  " + electric + " kWh/100km");
+        if (tripFuel != null) tripFuel.setText("最近油耗  " + fuel + " L/100km");
+        if (vehicleDataStatus != null) vehicleDataStatus.setText(data == null ? "无快照 · 点击诊断"
+            : "--".equals(distance) && "--".equals(electric) && "--".equals(fuel) ? "行程接口无有效值 · 点击诊断" : "车辆行程数据 · 点击诊断");
+        if (climateStatus != null) climateStatus.setText("空调  " + climateSummary(data));
     }
 
     private View navigationCard() {
@@ -269,6 +272,9 @@ public class MainActivity extends Activity {
             item.setOnLongClickListener(v -> { selectNavigation(); return true; });
             group.addView(item, new LinearLayout.LayoutParams(0, -1, 1));
         }
+        TextView split = text("3:7", 14, INK); split.setGravity(Gravity.CENTER);
+        split.setContentDescription("打开导航和音乐 3 比 7 分屏"); split.setOnClickListener(v -> openCustomSplit());
+        group.addView(split, new LinearLayout.LayoutParams(0, -1, 1));
         group.setOnLongClickListener(v -> { selectNavigation(); return true; });
         return group;
     }
@@ -297,23 +303,10 @@ public class MainActivity extends Activity {
             system.addView(button, new LinearLayout.LayoutParams(0, -1, 1));
         }
         bar.addView(system, new LinearLayout.LayoutParams(0, -1, .24f));
-        LinearLayout climate = new LinearLayout(this); climate.setGravity(Gravity.CENTER_VERTICAL);
-        String[] climateItems = {"风量", "‹", "--°", "›", "‹", "风向", "›", "‹", "--°", "›", "循环"};
-        for (String item : climateItems) {
-            View control;
-            if ("风量".equals(item) || "风向".equals(item) || "循环".equals(item)) {
-                FrameLayout container = new FrameLayout(this);
-                ImageView image = new ImageView(this); image.setImageDrawable(new NavIconDrawable(item));
-                image.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                container.addView(image, new FrameLayout.LayoutParams(dp(20), dp(20), Gravity.CENTER)); control = container;
-            } else {
-                TextView label = text(item, item.contains("°") ? 16 : 20, INK); label.setGravity(Gravity.CENTER); control = label;
-            }
-            control.setAlpha(.5f); control.setContentDescription("空调未连接：" + item);
-            control.setOnClickListener(v -> showClimateControls());
-            climate.addView(control, new LinearLayout.LayoutParams(0, -1, item.contains("°") ? 1.5f : 1f));
-        }
-        bar.addView(climate, new LinearLayout.LayoutParams(0, -1, .52f));
+        climateStatus = text("空调  --", 15, INK); climateStatus.setGravity(Gravity.CENTER);
+        climateStatus.setBackgroundResource(android.R.drawable.list_selector_background);
+        climateStatus.setOnClickListener(v -> showClimateControls());
+        bar.addView(climateStatus, new LinearLayout.LayoutParams(0, -1, .52f));
         LinearLayout shortcuts = new LinearLayout(this); shortcuts.setGravity(Gravity.CENTER_VERTICAL);
         for (String name : navOrder()) {
             if (!prefs.getBoolean("nav_" + name, true)) continue;
@@ -358,27 +351,47 @@ public class MainActivity extends Activity {
             .setPositiveButton("前往设置", (d, i) -> { try { startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)); } catch (ActivityNotFoundException e) { toast("系统未提供无障碍设置"); } })
             .setNegativeButton("取消", null).show();
     }
+    private String climateSummary(org.json.JSONObject data) {
+        int power = VehicleCards.code(data, "ac_start", 0, 1), wind = VehicleCards.code(data, "ac_wind", 0, 7);
+        return (power < 0 ? "状态未知" : power == 1 ? "开启" : "关闭") + " · 主 " + VehicleCards.temperature(data, 1)
+            + " / 副 " + VehicleCards.temperature(data, 2) + " · 风量 " + (wind < 0 ? "--" : wind);
+    }
     private void showClimateControls() {
         org.json.JSONObject data = vehicleBridge.data();
-        if (data == null) { showVehicleBridge(); return; }
+        if (VehicleCards.code(data, "ac_start", 0, 1) < 0) { showVehicleBridge(); return; }
         List<ChoicePanel.Item> items = new ArrayList<>();
         items.add(new ChoicePanel.Item("开启空调", "仅停车测试；请求后核对原车状态", null, false, () -> sendClimateCommand("power:1")));
         items.add(new ChoicePanel.Item("关闭空调", "不会自动重试控制指令", null, false, () -> sendClimateCommand("power:0")));
-        for (int level = 1; level <= 7; level++) {
+        for (int level = 1; VehicleCards.code(data, "ac_wind", 0, 7) >= 0 && level <= 7; level++) {
             final int value = level;
             items.add(new ChoicePanel.Item("风量 " + level, "参考APK参数，尚待车型验证", null, data.optInt("ac_wind", -1) == level,
                 () -> sendClimateCommand("wind:" + value)));
         }
-        ChoicePanel.show(this, "空调控制（实验）", "主驾原始温度：" + data.optString("ac_temp_1", "--") + " · 副驾：" + data.optString("ac_temp_2", "--"), items);
+        ChoicePanel.show(this, "空调控制（实验）", climateSummary(data), items);
     }
     private void sendClimateCommand(String command) {
         new AlertDialog.Builder(this).setTitle("确认空调操作")
             .setMessage("请停车测试。将向车辆发送一次空调控制请求；返回成功也需核对原车实际状态。")
-            .setPositiveButton("执行", (d, i) -> vehicleBridge.control(command, result -> {
-                if (isFinishing() || isDestroyed()) return;
-                if (!result.optBoolean("accepted", false)) toast("空调请求失败：" + result.optString("error", "返回码 " + result.optString("code", "无响应")));
-                else toast("车辆接口已接受请求，请核对原车状态");
-            })).setNegativeButton("取消", null).show();
+            .setPositiveButton("执行", (d, i) -> {
+                org.json.JSONObject data = vehicleBridge.data();
+                if (VehicleCards.code(data, "ac_start", 0, 1) < 0
+                        || (command.startsWith("wind:") && VehicleCards.code(data, "ac_wind", 0, 7) < 0)) {
+                    toast("空调状态已失效，请重新连接"); return;
+                }
+                adbConnection.climate(adbHost(), adbPort(), command, output -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    for (String line : output.split("\\r?\\n")) if (line.startsWith(VehicleBridgeMain.CONTROL_PREFIX)) {
+                        try {
+                            org.json.JSONObject result = new org.json.JSONObject(line.substring(VehicleBridgeMain.CONTROL_PREFIX.length()));
+                            toast(result.optBoolean("accepted", false) ? "车辆接口已接受请求，请核对原车状态"
+                                : "空调请求失败：" + result.optString("error", "返回码 " + result.optString("code", "未知")));
+                            return;
+                        } catch (org.json.JSONException ignored) { break; }
+                    }
+                    new AlertDialog.Builder(this).setTitle("空调请求结果未知").setMessage(output.isEmpty() ? "无返回信息" : output)
+                        .setPositiveButton("关闭", null).show();
+                });
+            }).setNegativeButton("取消", null).show();
     }
 
     private void openSystemRecents() {
@@ -681,7 +694,7 @@ public class MainActivity extends Activity {
         else registerReceiver(musicUpdates, filter);
         musicReceiverRegistered = true;
         musicSession.start(prefs.getString("music_app", ""));
-        vehicleBridge.start();
+        vehicleBridge.foreground(true);
         if (prefs.getBoolean("show_speed", true)) speedMonitor.start();
         if (videoWallpaper != null && videoWallpaper.getVisibility() == View.VISIBLE) videoWallpaper.start();
     }
@@ -690,11 +703,15 @@ public class MainActivity extends Activity {
         pendingMusicCommand = null; musicCommandGeneration++; musicHandler.removeCallbacksAndMessages(null);
         if (musicReceiverRegistered) { unregisterReceiver(musicUpdates); musicReceiverRegistered = false; }
         musicSession.stop(); if (videoWallpaper != null) videoWallpaper.pause(); super.onPause();
-        vehicleBridge.stop();
+        vehicleBridge.foreground(false);
         speedMonitor.stop();
     }
-    @Override protected void onDestroy() { adbConnection.close(); vehicleBridge.close(); speedMonitor.stop(); musicSession.stop(); if (videoWallpaper != null) videoWallpaper.stopPlayback(); super.onDestroy(); }
-    @Override public void onBackPressed() { showSettings(); }
+    @Override protected void onStop() {
+        if (embeddedMap != null) rebuildHome();
+        super.onStop();
+    }
+    @Override protected void onDestroy() { closeEmbeddedMap(); adbConnection.close(); speedMonitor.stop(); musicSession.stop(); if (videoWallpaper != null) videoWallpaper.stopPlayback(); super.onDestroy(); }
+    @Override public void onBackPressed() { if (embeddedMap != null) rebuildHome(); else showSettings(); }
 
     private void launchComponent(String value) {
         android.content.ComponentName component = android.content.ComponentName.unflattenFromString(value);
@@ -718,6 +735,7 @@ public class MainActivity extends Activity {
         }).setNegativeButton("取消", null).show();
     }
     private void rebuildHome() {
+        closeEmbeddedMap();
         if (videoWallpaper != null) videoWallpaper.stopPlayback(); buildHome(); hideSystemBars();
         if (active) { if (prefs.getBoolean("show_speed", true)) speedMonitor.start(); else speedMonitor.stop(); }
     }
@@ -771,7 +789,7 @@ public class MainActivity extends Activity {
         panel.category("按键设置");
         panel.action("右侧功能按钮", "显示、排序并绑定应用；也可长按按键", "管理", this::editNavOrder);
         panel.category("导航与音乐");
-        panel.action("导航与音乐真实分屏", "实验：系统多窗口，需停车配置；非桌面嵌入", "设置", this::showSplitSettings);
+        panel.action("音乐 / 导航 3:7", "实验：左侧桌面音乐，右侧虚拟屏导航；仅停车配置", "打开", () -> { panel.dismiss(); openCustomSplit(); });
         panel.action("默认导航应用", "选择高德、百度或腾讯地图", "选择", this::selectNavigation);
         panel.action("默认音乐应用", "指定播放器或跟随当前播放", "选择", this::selectMusic);
         panel.action("音乐通知使用权", "自动ADB授权；可访问通知和媒体信息，不清除通知", "授权", this::requestMusicAccess);
@@ -791,39 +809,45 @@ public class MainActivity extends Activity {
         panel.action("Android 系统设置", "打开设备的系统设置页面", "打开", () -> { try { startActivity(new Intent(Settings.ACTION_SETTINGS)); } catch (ActivityNotFoundException e) { toast("系统设置不可用"); } });
         panel.show();
     }
-    private void showSplitSettings() {
-        List<ChoicePanel.Item> items = new ArrayList<>();
-        String map = prefs.getString("navigation_app", ""), music = prefs.getString("music_app", "");
-        if (music.isEmpty() && musicSession.controller() != null) music = musicSession.controller().getPackageName();
-        final String player = music;
-        if (map.isEmpty()) {
-            items.add(new ChoicePanel.Item("先选择默认地图", "需指定导航应用", null, false, this::selectNavigation));
+    private String adbHost() { return prefs.getString("adb_host", "127.0.0.1"); }
+    private int adbPort() { return prefs.getInt("adb_port", 5555); }
+
+    private void openCustomSplit() {
+        if (getResources().getConfiguration().orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+            toast("请切换到横屏后再打开 3:7 分屏"); return;
         }
-        if (player.isEmpty()) {
-            items.add(new ChoicePanel.Item("先选择音乐播放器", "需指定音乐应用或先播放歌曲", null, false, this::selectMusic));
-        }
-        if (!map.isEmpty() && !player.isEmpty()) {
-            items.add(new ChoicePanel.Item("音乐左 / 地图右", "比例由系统决定，暂不支持指定", null, false, () -> launchSystemSplit(player, map, 50)));
-            items.add(new ChoicePanel.Item("地图左 / 音乐右", "比例由系统决定，暂不支持指定", null, false, () -> launchSystemSplit(map, player, 50)));
-        }
-        ChoicePanel.show(this, "真实分屏（实验）", "仅导航和音乐。使用系统分屏，桌面底栏不会覆盖其他应用；Home可返回桌面", items);
+        String map = prefs.getString("navigation_app", "");
+        Intent intent = map.isEmpty() ? null : getPackageManager().getLaunchIntentForPackage(map);
+        if (intent == null || intent.getComponent() == null) { toast("请先选择已安装的地图"); selectNavigation(); return; }
+        closeEmbeddedMap();
+        if (videoWallpaper != null) { videoWallpaper.stopPlayback(); videoWallpaper = null; }
+        topMusic = null; climateStatus = null; speedLabel = null;
+        java.util.Arrays.fill(tyreReadings, null);
+        tripDistance = tripElectric = tripFuel = vehicleDataStatus = null;
+        LinearLayout page = new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL); page.setBackgroundColor(0xffeef3f7);
+        LinearLayout header = new LinearLayout(this); header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(12), 0, dp(12), 0);
+        android.widget.Button back = new android.widget.Button(this); back.setText("返回桌面"); back.setOnClickListener(v -> rebuildHome()); header.addView(back);
+        TextView title = text("   音乐 / 导航 3:7", 16, INK); header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+        android.widget.Button full = new android.widget.Button(this); full.setText("全屏打开地图"); full.setOnClickListener(v -> { rebuildHome(); chooseNavigation(); }); header.addView(full);
+        page.addView(header, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout panes = new LinearLayout(this); panes.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        ScrollView music = new ScrollView(this); music.setFillViewport(true);
+        LinearLayout left = new LinearLayout(this); left.setOrientation(LinearLayout.VERTICAL); left.setGravity(Gravity.CENTER_VERTICAL); left.setPadding(dp(8), dp(8), dp(8), dp(8));
+        TextView heading = text("音乐", 22, INK); heading.setGravity(Gravity.CENTER); left.addView(heading);
+        View card = musicCard(); left.addView(card, new LinearLayout.LayoutParams(-1, dp(110)));
+        music.addView(left); panes.addView(music, new LinearLayout.LayoutParams(0, -1, 3f));
+        embeddedMap = new EmbeddedMapView(this, intent, adbConnection, adbHost(), adbPort());
+        panes.addView(embeddedMap, new LinearLayout.LayoutParams(0, -1, 7f));
+        page.addView(panes, new LinearLayout.LayoutParams(-1, 0, 1f));
+        setContentView(page); hideSystemBars(); updateMusic();
     }
-    private void launchSystemSplit(String left, String right, int percent) {
-        Intent a = getPackageManager().getLaunchIntentForPackage(left), b = getPackageManager().getLaunchIntentForPackage(right);
-        if (a == null || b == null || a.getComponent() == null || b.getComponent() == null) { toast("应用不可启动，请重新选择"); return; }
-        new AlertDialog.Builder(this).setTitle("启动系统分屏")
-            .setMessage("请仅在停车时配置。将启动两个真实应用，比例和触控由DiLink多窗口管理；不支持时可能只打开其中一个应用。可用系统Home或最近任务退出分屏。")
-            .setPositiveButton("启动", (d, i) -> adbConnection.startSplit(prefs.getString("adb_host", "127.0.0.1"), prefs.getInt("adb_port", 5555),
-                a.getComponent(), b.getComponent(), getResources().getDisplayMetrics().widthPixels, getResources().getDisplayMetrics().heightPixels, percent, result -> {
-                    if (isFinishing() || isDestroyed()) return;
-                    if (!result.contains("LEFT_RESULT:0") || !result.contains("RIGHT_RESULT:0") || result.contains("Error") || result.contains("Exception"))
-                        new AlertDialog.Builder(this).setTitle("系统分屏返回结果").setMessage(result.isEmpty() ? "未收到结果" : result).setPositiveButton("关闭", null).show();
-                }))
-            .setNegativeButton("取消", null).show();
+    private void closeEmbeddedMap() {
+        if (embeddedMap == null) return;
+        embeddedMap.close(); embeddedMap = null;
     }
     private void showVehicleBridge() {
         new AlertDialog.Builder(this).setTitle("车辆只读桥接（实验）")
-            .setMessage(vehicleBridge.diagnostics() + "\n\nADB状态与启动输出：\n" + adbConnection.diagnostics() + "\n\n桥接运行30分钟后退出，需手动重新连接。接口数据为未确认单位的原始值，不用于仪表或车控。")
+            .setMessage(adbConnection.diagnostics() + "\n\n实时接口值／错误：\n" + vehicleBridge.diagnostics() + "\n\n桥接到期后可手动重新连接。请与原车界面对照数据。")
             .setPositiveButton("无线ADB", (dialog, which) -> showAdbConnection())
             .setNeutralButton("刷新", (dialog, which) -> showVehicleBridge())
             .setNegativeButton("关闭", null).show();

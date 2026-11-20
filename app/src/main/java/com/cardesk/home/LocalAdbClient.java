@@ -12,6 +12,7 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.function.Consumer;
+import java.nio.charset.StandardCharsets;
 
 /** One legacy ADB transport and one shell stream; restricted to this Android device. */
 final class LocalAdbClient implements Closeable {
@@ -49,6 +50,10 @@ final class LocalAdbClient implements Closeable {
         write(OPEN, 1, 0, ("shell:" + script + "\0").getBytes("UTF-8"));
         int remote = 0;
         boolean opened = false;
+        ByteBuffer pending = ByteBuffer.allocate(MAX_PAYLOAD + 4);
+        java.nio.charset.CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
+            .onMalformedInput(java.nio.charset.CodingErrorAction.REPLACE)
+            .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPLACE);
         while (!socket.isClosed()) {
             Packet packet = read();
             if (packet.arg1 != 1) throw new IOException("ADB流标识错误");
@@ -56,7 +61,11 @@ final class LocalAdbClient implements Closeable {
                 if (opened && packet.arg0 != remote) throw new IOException("ADB远端流变更");
                 remote = packet.arg0; opened = true; socket.setSoTimeout(0);
             } else if (packet.command == WRTE && opened && packet.arg0 == remote) {
-                received.accept(new String(packet.data, "UTF-8")); write(OKAY, 1, remote, new byte[0]);
+                pending.put(packet.data); pending.flip();
+                java.nio.CharBuffer chars = java.nio.CharBuffer.allocate(pending.remaining() + 4);
+                decoder.decode(pending, chars, false); pending.compact(); chars.flip();
+                if (chars.hasRemaining()) received.accept(chars.toString());
+                write(OKAY, 1, remote, new byte[0]);
             } else if (packet.command == CLSE) {
                 write(CLSE, 1, packet.arg0, new byte[0]); return;
             } else throw new IOException("ADB流协议错误");

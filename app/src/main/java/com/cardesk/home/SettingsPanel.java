@@ -65,6 +65,7 @@ public final class SettingsPanel {
         box.addView(control, params); control.setOnClickListener(v -> action.run());
         box.setOnClickListener(v -> action.run());
     }
+    void dismiss() { dialog.dismiss(); }
     public void toggle(String title, String detail, String key, boolean fallback) {
         LinearLayout box = card(title, detail);
         TextView control = label("", 12, Color.WHITE); control.setGravity(Gravity.CENTER);

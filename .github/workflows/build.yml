@@ -35,7 +35,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew testDebugUnitTest assembleDebug
         timeout-minutes: 15 # 🔴 编译打包这步 15 分钟超时
 
       - name: Upload APK
